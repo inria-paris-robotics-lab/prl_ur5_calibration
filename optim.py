@@ -2,6 +2,7 @@ from data_2 import data
 from scipy.optimize import fmin_bfgs
 import pinocchio as pin
 from math import cos, sqrt
+from scipy.spatial.transform import Rotation
 
 q_cam_0 = [0.0,   0.02, 0.15,  -0.5, -0.5,   0.5, 0.5]
 q_arm_0 = [-0.18, 0.0,  0.79,  0,    -0.924, 0,   0.38]
@@ -86,7 +87,7 @@ def cost(x):
         base_T_stand, shoulder_T_tool, screws_T_cam, cam_T_aruco = parseLine(d) 
         T = base_T_stand * stand_T_shoulder * shoulder_T_tool * tool_T_screws * screws_T_cam * cam_T_aruco
         c += error(T)
-    return c
+    return c / len(data)
 
 x0 = q_cam_0 + q_arm_0
 
@@ -95,6 +96,7 @@ xopt_bfgs = fmin_bfgs(cost, x0)
 # Normalize quaternions
 qopt_cam, qopt_arm = x_to_qs(xopt_bfgs)
 
+print("")
 print("Camera : ")
 print(f"qopt_cam: {qopt_cam}\ndiff : {diff(qopt_cam, q_cam_0)}")
 print("Arm : ")
@@ -103,4 +105,9 @@ print(f"qopt_arm: {qopt_arm}\ndiff : {diff(qopt_arm, q_arm_0)}")
 print(f"Start cost : {cost(x0)}")
 print(f"Final cost : {cost(xopt_bfgs)}")
 
+cam_rot_euler = Rotation.from_quat(qopt_cam[3:]).as_euler('XYZ') #Rotation.from_quat(qopt_cam[3:]).as_euler('xyz')
+arm_rot_euler = Rotation.from_quat(qopt_arm[3:]).as_euler('XYZ')
 
+print("")
+print(f"cam translation: \t{qopt_cam[:3]}\ncam rotation_euler: \t{cam_rot_euler}")
+print(f"arm translation: \t{qopt_arm[:3]}\narm rotation_euler: \t{arm_rot_euler}")
