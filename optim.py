@@ -86,6 +86,11 @@ def cost(x):
     for d in data:
         base_T_stand, shoulder_T_tool, screws_T_cam, cam_T_aruco = parseLine(d) 
         T = base_T_stand * stand_T_shoulder * shoulder_T_tool * tool_T_screws * screws_T_cam * cam_T_aruco
+        
+        ''' THIS IS A TEMPORARY FIX FOR THIS DATA '''
+        T = T*pin.XYZQUATToSE3([0,0,0, 0, 0, 0.707, 0.707])
+        '''~THIS IS A TEMPORARY FIX FOR THIS DATA~'''
+        
         c += error(T)
     return c / len(data)
 
@@ -98,9 +103,9 @@ qopt_cam, qopt_arm = x_to_qs(xopt_bfgs)
 
 print("")
 print("Camera : ")
-print(f"qopt_cam: {qopt_cam}\ndiff : {diff(qopt_cam, q_cam_0)}")
+print(f"qopt_cam: \t{qopt_cam}\ndiff: \t\t{diff(qopt_cam, q_cam_0)}")
 print("Arm : ")
-print(f"qopt_arm: {qopt_arm}\ndiff : {diff(qopt_arm, q_arm_0)}")
+print(f"qopt_arm: \t{qopt_arm}\ndiff: \t\t{diff(qopt_arm, q_arm_0)}")
 
 print(f"Start cost : {cost(x0)}")
 print(f"Final cost : {cost(xopt_bfgs)}")
