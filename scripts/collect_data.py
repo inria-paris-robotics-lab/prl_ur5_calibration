@@ -24,19 +24,25 @@ class Calibration():
         # Configure the planning pipeline
         self.robot.left_arm.set_max_velocity_scaling_factor(0.25)
         self.robot.left_arm.set_max_acceleration_scaling_factor(0.25)
-        self.robot.left_arm.set_planning_time(2.0)
+        self.robot.left_arm.set_planning_time(10)
         self.robot.left_arm.set_planner_id('RRTstar')
+        self.robot.left_arm.set_end_effector_link('left_gripper_grasp_frame')
 
-        self.robot.right_arm.set_max_velocity_scaling_factor(0.25)
-        self.robot.right_arm.set_max_acceleration_scaling_factor(0.25)
-        self.robot.right_arm.set_planning_time(5.0)
-        self.robot.right_arm.set_planner_id('RRTstar')
+        # Get table object
+        self.table_object = self.scene.get_objects()['table']
+
+        # Some constant geometry
+        self.GRIPPER_GRASP_F_HEIGHT = 0.022
 
         self.collected_datas = []
 
-    def go_at_pose(self, pose):
-        self.set_gripper("open")
+    def enable_table(self, enable):
+        if(enable):
+            self.scene.add_object(self.table_object)
+        else:
+            self.scene.remove_world_object('table')
 
+    def go_at_pose(self, pose):
         success = self.go_cartesian_wps([pose])
         if(not success): # If cannot go in cartesion path, plan an other path
             print("Cannot move to position in cartesian mode > Try RRT")
@@ -65,69 +71,81 @@ class Calibration():
         return trans, rot
 
 
-    def run(self):
-        self.set_gripper("open")
+    def calibrate_on_point(self, goal_x, goal_y, goal_z, x_offset=0, y_offset=0, z_offset=0):
+        x, y, z = goal_x + x_offset, goal_y + y_offset, goal_z + z_offset
 
-        poses = [
-                  # make_pose((-0.45, 0, 0.40), (3*pi/4., 0, pi/2.)),
-                  # make_pose((-0.45, 0, 0.40), (-3*pi/4., 0, -pi/2)),
-                  # make_pose((-0.45, 0, 0.40), (3*pi/4, 0, 95*pi/180.)),
-                  # make_pose((-0.45, 0, 0.40), (-3*pi/4, 0, -95*pi/180.)),
-                  # make_pose((-0.45, 0, 0.40), (3*pi/4, 0, 75*pi/180.)),
-                  # make_pose((-0.45, 0, 0.40), (-3*pi/4, 0, -75*pi/180.)),
-                  #
-                  # make_pose((-0.70, 0, 0.55), (3*pi/4., 0, pi/2.)),
-                  # make_pose((-0.70, 0, 0.55), (-3*pi/4., 0, -pi/2)),
-                  # make_pose((-0.70, 0, 0.55), (3*pi/4, 0, 100*pi/180.)),
-                  # make_pose((-0.70, 0, 0.55), (3*pi/4, 0, 70*pi/180.)),
-                  # make_pose((-0.70, 0, 0.55), (-3*pi/4, 0, -70*pi/180.)),
-                  # make_pose((-0.70, 0, 0.55), (-3*pi/4, 0, -100*pi/180.)),
-                  #
-                  # make_pose((-0.05, 0.37, 0.43), (135*pi/180., 0, 0)),
-                  # make_pose((-0.05, 0.37, 0.43), (-135*pi/180., 0, 180*pi/180)),
-                  # make_pose((-0.05, 0.37, 0.43), (135*pi/180., 0, -5*pi/180)),
-                  # make_pose((-0.05, 0.37, 0.43), (-135*pi/180., 0, 195*pi/180)),
-                  # make_pose((-0.05, 0.37, 0.43), (135*pi/180., 0, 10*pi/180)),
-                  # make_pose((-0.05, 0.37, 0.43), (-135*pi/180., 0, 205*pi/180)),
-                  #
-                  # make_pose((0, 0, 0.70), (-pi, 0, 0)),
-                  # make_pose((0, 0, 0.70), (-pi, 0, pi)),
-                  # make_pose((0, 0, 0.70), (-pi, 15*pi/180., pi)),
-                  # make_pose((0, 0, 0.70), (-pi, 15*pi/180., 0)),
-                  # make_pose((0, 0, 0.70), (-pi, -10*pi/180., 0)),
-                  # make_pose((0, 0, 0.70), (-pi, 0, 0)),
-                ]
+        # Go at rough pose
+        pre_goal_pose = make_pose([x, y, z+0.1], [pi, 0, 0])
+        goal_pose = make_pose([x, y, z], [pi, 0, 0])
+        
+        self.enable_table(True)
+        self.go_at_pose(pre_goal_pose)
+        self.go_at_pose(goal_pose)
 
-        for pose in poses:
-            self.go_at_pose(pose)
+        # Fine adjust with keyboard
+        flipped = False
+        stop = False
+        self.enable_table(False)
+        while not rospy.is_shutdown() and not stop:
+            key = input("> ")
 
-            rospy.sleep(rospy.Duration(1.))
+            if key == '2':
+                z -= 0.001
+            elif key == '8':
+                z += 0.001
+            elif key == '6' and not flipped:
+                x -= 0.001
+            elif key == '4' and not flipped:
+                x += 0.001
+            elif key == '6' and flipped:
+                y -= 0.001
+            elif key == '4' and flipped:
+                y += 0.001
+            elif key == '5':
+                flipped = not flipped
+            elif key == '.':
+                stop = True
 
-            transf_ur = self.getTransforms("/left_tool", "/left_base_link")
-            transf_table = self.getTransforms("/stand_link", "/prl_ur5_base")
-
-            success = False
-            tries = 0
-            while (tries < 10000 and success == False):
-                tries += 1
-                transf_aruco = rospy.wait_for_message("fiducial_transforms", FiducialTransformArray)
-                try:
-                    transf_aruco = transf_aruco.transforms[0].transform
-                    transf_aruco = ([transf_aruco.translation.x, transf_aruco.translation.y, transf_aruco.translation.z], [transf_aruco.rotation.x, transf_aruco.rotation.y, transf_aruco.rotation.z, transf_aruco.rotation.w])
-
-                    self.collected_datas.append([transf_aruco, transf_ur, transf_table])
-                    success = True
-                except Exception:
-                    # print("Aruco Failed !")
-                    # print(transf_aruco)
-                    # traceback.print_exc()
-                    pass
-
-            if(success):
-                rospy.loginfo(f"succeed after {tries} tries")
+            pose = None
+            if not flipped:
+                pose = make_pose([x, y, z], [pi, 0, 0])
             else:
-                rospy.loginfo(f"FAILED ! after {tries} tries")
+                pose = make_pose([x, y, z], [pi, 0, pi/2])
+            self.go_cartesian_wps([pose])
 
+        # Print the result
+        res = [
+            [goal_x, goal_y, goal_z],
+            self.getTransforms("/left_base_link", "/left_gripper_grasp_frame"),
+            self.getTransforms("/prl_ur5_base", "/stand_link")
+        ]
+
+        # Re-set the planning
+        self.go_cartesian_wps([goal_pose])
+        self.enable_table(True)
+
+        print(res)
+        return res
+
+
+    def run(self):
+        self.set_gripper("close")
+
+        rospy.loginfo("4 8 6 2 keys to move - 5 to rotate - . to go to next point")
+
+        self.collected_datas.append(self.calibrate_on_point(0, -0.135   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(0    , 0   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.45, 0   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.45, -0.27   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.90, -0.27   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.90, 0   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.90, 0.135   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(-0.45, 0.27, self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(0    , 0.27, self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+        self.collected_datas.append(self.calibrate_on_point(0.45 , 0   , self.GRIPPER_GRASP_F_HEIGHT, z_offset=0.005))
+
+
+        rospy.loginfo("Collected data : ")
         rospy.loginfo(self.collected_datas)
 
 node = None
