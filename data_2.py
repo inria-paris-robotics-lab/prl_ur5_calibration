@@ -1,6 +1,11 @@
-# Data
-    # (aruco in camera), (camera in screws), (tool in shoulder), (stand_link in base)
-    # ....
+# data is a list of this list of transforms:
+#     (optical_T_aruco), (cambase_T_optical), (tool_T_shoulder), (stand_T_base)
+#
+# each transform is (translation, rotation) with rotation a quaternion
+# base is the origin
+# we are looking for (tool_T_cambase) and (stand_T_shoulder)
+#
+# The aruco is rotated -90° over z-axis in the base frame
 
 data_a = [
  [([0.025766473080005667, 0.006310372867083608, 0.4499967896889569], [0.9222003347152258, -0.0004430746198444199, -0.008714540466449032, 0.386614023440001]), ([0.03204387470707695, 0.012430466692877229, -0.010537467368308], [0.49949843148351647, -0.4999617556168231, 0.49738522301777266, 0.5031376621627716]), ([-0.382547729370185, 0.4668823244150663, -0.0837559860628412], [0.49995719545266326, 0.5000622918035356, -0.4999355975733879, 0.500044903293938]), ([0.0, 0.3825, 0.0], [0.0, 0.0, 0.0, 1.0])],
