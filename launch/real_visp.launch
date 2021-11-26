@@ -10,4 +10,6 @@
     <arg name="dictionary" value="0"/>
     <arg name="fiducial_len" value="0.12"/>
   </include>
+
+  <node name="visp_hand2eye_calibration_calibrator" pkg="visp_hand2eye_calibration" type="visp_hand2eye_calibration_calibrator"/>
 </launch>
