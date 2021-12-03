@@ -3,11 +3,17 @@
   <param name="model_description" textfile="$(find prl_ur5_calibration)/models/pattern_QR/pattern_QR.wrl"/>
 
 
+  <include file="$(find aruco_detect)/launch/aruco_detect.launch">
+    <arg name="camera" value="left_camera/color"/>
+    <arg name="image" value="image_rect_color"/>
+    <arg name="dictionary" value="0"/>
+    <arg name="fiducial_len" value="0.12"/>
+  </include>
+
   <node pkg="visp_tracker" type="tracker" name="tracker_mbt">
     <param name="camera_prefix" value="/left_camera/color" />
     <param name="debug_display" value="True" />
 
-    <!-- <remap from="/visp_auto_tracker/camera_info" to="/left_camera/color/camera_info"/> -->
     <remap from="/left_camera/color/image_rect" to="/left_camera/color/image_rect_color"/>
   </node>
 

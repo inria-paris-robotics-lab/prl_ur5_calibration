@@ -1,16 +1,21 @@
 import rospy
 import tf
 from geometry_msgs.msg import Transform, Vector3, Quaternion
-
+from fiducial_msgs.msg import FiducialTransformArray
 
 rospy.init_node('Test', log_level=rospy.INFO)
 
+# # Get approximate transform of QR
+# tf_listener = tf.TransformListener()
+# from_f = "/left_camera_color_optical_frame"
+# to_f = "/prl_ur5_base"
+# tf_listener.waitForTransform(from_f, to_f, rospy.Time(0), rospy.Duration(4.0))
+# trans, rot = tf_listener.lookupTransform(from_f, to_f, rospy.Time(0))
+# cMo = Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
+
 # Get approximate transform of QR
-tf_listener = tf.TransformListener()
-from_f = "/left_camera_color_optical_frame"
-to_f = "/prl_ur5_base"
-tf_listener.waitForTransform(from_f, to_f, rospy.Time(0), rospy.Duration(4.0))
-trans, rot = tf_listener.lookupTransform(from_f, to_f, rospy.Time(0))
+msg = rospy.wait_for_message("fiducial_transforms", FiducialTransformArray)
+cMo = msg.transforms[0].transform
 
 # Init tracker
 from visp_tracker.srv import Init, InitRequest
@@ -18,7 +23,7 @@ rospy.wait_for_service('init_tracker')
 srv_init_tracker = rospy.ServiceProxy('init_tracker', Init)
 
 init_req = InitRequest()
-init_req.initial_cMo = Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
+init_req.initial_cMo = cMo
 
 init_req.tracker_param.angle_appear = 75
 init_req.tracker_param.angle_disappear = 75
