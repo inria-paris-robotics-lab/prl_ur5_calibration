@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from numpy.lib.function_base import angle
 import moveit_commander
 import rospy
 import sys
@@ -7,10 +8,8 @@ import sys
 from prl_ur5_demos.utils import make_pose
 import pinocchio as pin
 import numpy as np
-import rospkg
-
-from fiducial_msgs.msg import FiducialTransformArray
-from geometry_msgs.msg import Transform, Vector3, Quaternion
+from std_msgs.msg import Int8
+from geometry_msgs.msg import Transform, Vector3, Quaternion, PoseStamped
 from visp_hand2eye_calibration.srv import compute_effector_camera_quick
 from visp_hand2eye_calibration.msg import TransformArray
 
@@ -28,8 +27,8 @@ class Calibration():
         # Configure the planning pipeline
         self.robot.left_arm.set_max_velocity_scaling_factor(0.2)
         self.robot.left_arm.set_max_acceleration_scaling_factor(0.2)
-        self.robot.left_arm.set_planning_time(2)
-        self.robot.left_arm.set_planner_id('RRTstar')
+        self.robot.left_arm.set_planning_time(5)
+        self.robot.left_arm.set_planner_id('RRTConnect')
 
         # print(self.robot.left_arm.get_end_effector_link()) # left_tool
 
@@ -42,11 +41,10 @@ class Calibration():
         if(not success): # If cannot go in cartesion path, plan an other path
             print("Cannot move to position in cartesian mode > Try RRT")
             success = self.robot.left_arm.go(pose, wait=True)
-
         return success
 
     def go_cartesian_wps(self, waypoints):
-        left_path, left_fraction = self.robot.left_arm.compute_cartesian_path(waypoints, eef_step=0.01, jump_threshold=10.0)
+        left_path, left_fraction = self.robot.left_arm.compute_cartesian_path(waypoints, eef_step=0.005, jump_threshold=5.0)
         if left_fraction >= 1.0:
             self.robot.left_arm.execute(left_path, wait=True)
             return True
@@ -64,12 +62,13 @@ class Calibration():
 
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
-    def get_aruco(self):
-        for _ in range(10):
-            transf_aruco = rospy.wait_for_message("fiducial_transforms", FiducialTransformArray)
-            if(len(transf_aruco.transforms) > 0):
-                return transf_aruco.transforms[0].transform
-            rospy.sleep(0.01)
+    def get_marker(self, n_tries=50, delay_tries=0.02):
+        for _ in range(n_tries):
+            status = rospy.wait_for_message("/visp_auto_tracker/status", Int8)
+            if(status.data > 1):
+                transf_marker = rospy.wait_for_message("/visp_auto_tracker/object_position", PoseStamped)
+                return transf_marker.pose
+            rospy.sleep(delay_tries)
         return None
 
     def go_to_rpy(self, l, rpy):
@@ -97,45 +96,67 @@ class Calibration():
         self.set_gripper("open")
 
         sample_distance = 0.45
-        sample_rpy = np.array([[1.4564606963470341, -0.7441119173464478, -1.4654673942399523],
-                                [1.3129474678024469, -0.9028080689374369, -1.3515655277445409],
-                                [0.27758748, -0.60845145, -1.3089007],
-                                [0.0192312, -0.10345522, -1.06005948],
-                                [0.08778395, 0.16220219, -1.24213999],
-                                [-0.50674563, -0.4712473, -1.01117966],
-                                [0.09749526810290529, -0.4381084130984383, -0.09447612057178745],
-                                [0.41483697, -0.82465037, 0.08239443],
-                                [-0.3186498376634783, -1.1543141698475334, 0.005334004985295956],
-                                [-0.3719995160649501, -0.5289335061783618, 0.24522930535547574],
-                                [-0.17198890185481117, -0.367641954115124, 1.0445485851469207],
-                                [-0.02858335, -0.32575534, 1.07704686],
-                                [-0.04557244, -0.74919633, 1.18554096],
-                                [-0.7286450525123809, -1.173168560457098, 1.2057157334973343],
-                                [-0.90689106, -1.05620302, 1.14180119],
-                                [-0.6227868337984509, 0.020915589351595123, 0.8707877563046359],
-                                [-0.41170385, 0.27149211, -0.02671961],
-                                [0.10062518, 0.59164302, -0.03274805]
-                                ])
+        # sample_rpy = (np.random.rand(50,3) - 0.5) * np.pi
+        # sample_rpy = np.array([ np.array([ 0.0192312 , -0.10345522, -1.06005948]),
+        #                         np.array([ 0.08778395,  0.16220219, -1.24213999]),
+        #                         np.array([-0.50674563, -0.4712473 , -1.01117966]),
+        #                         np.array([ 0.09749527, -0.43810841, -0.09447612]),
+        #                         np.array([ 0.41483697, -0.82465037,  0.08239443]),
+        #                         np.array([-0.37199952, -0.52893351,  0.24522931]),
+        #                         np.array([-0.1719889 , -0.36764195,  1.04454859]),
+        #                         np.array([-0.02858335, -0.32575534,  1.07704686]),
+        #                         np.array([-0.04557244, -0.74919633,  1.18554096]),
+        #                         np.array([-0.62278683,  0.02091559,  0.87078776]),
+        #                         np.array([-0.41170385,  0.27149211, -0.02671961]),
+        #                         np.array([ 0.10062518,  0.59164302, -0.03274805])
+        #                         ])
+        # sample_rpy = np.array([ # np.array([ -np.pi/6, 0, -np.pi/2]),
+        #                         # np.array([ 0, np.pi/6, 0]),
+        #                         # np.array([ 0, np.pi/6, np.pi/4]),
+        #                         ])
+
+        interest_angles = [0, np.pi/6, -np.pi/6, np.pi/4, -np.pi/4, np.pi/3, -np.pi/3, np.pi/2, -np.pi/2]
+        sample_rpy = []
+        for r in interest_angles:
+            for p in interest_angles:
+                for y in interest_angles:
+                    sample_rpy.append(np.array([r, p, y]))
+        # # Reachable
+        # selected_samples = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26, 36, 37, 38, 39, 40, 41, 44, 54, 55, 56, 57, 58, 89, 100, 101, 103, 105, 107, 119, 121, 123, 125, 135, 137, 139, 141, 143, 162, 163, 164, 165, 166, 167, 168, 169, 170, 178, 180, 181, 182, 183, 184, 185, 187, 199, 201, 203, 205, 217, 219, 221, 265, 267, 269, 279, 281, 283, 285, 299, 301, 303, 327, 331, 343, 345, 347, 349, 363, 365, 367, 381, 383, 385, 431, 443, 445, 447, 449, 465, 467, 493, 511, 529, 547, 575, 593]
+        # Viewable
+        selected_samples = [ 0 , 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 11 , 12 , 13 , 14 , 15 , 16 , 17 , 18 , 19 , 20 , 21 , 22 , 23 , 24 , 25 , 27 , 28 , 29 , 30 , 31 , 37 , 39 , 41 , 42 , 43 , 46 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 , 62 , 63 , 64 , 65 , 67 , 68 , 77 , 78 , 87 , 88 , 89 , 90 , 105]
+        # # Spaced
+        # selected_samples = [42 , 60 , 58 , 78 , 62 , 105 , 89 , 8 , 17 , 53 , 67 , 65 , 63 , 64 , 68 , 52 , 16 , 7 , 25 , 43 , 61 , 59 , 57 , 77 , 88 ]
+        sample_rpy = [sample_rpy[i] for i in selected_samples]
+        sample_rpy = np.array(sample_rpy)
+
+        # from numpy import array
+        # sample_rpy = np.array([array([ 0.        , -0.78539816, -1.04719755]), array([ 0.        , -1.04719755, -1.04719755]), array([ 0.        , -1.04719755, -0.78539816]), array([ 0.        , -1.57079633, -1.04719755]), array([ 0.        , -1.04719755, -1.57079633]), array([ 0.52359878, -0.52359878, -1.04719755]), array([ 0.52359878,  0.        , -1.57079633]), array([ 0.        ,  0.        , -1.57079633]), array([ 0.        ,  0.52359878, -1.57079633]), array([ 0.        ,  1.04719755, -1.57079633]), array([ 0.        ,  1.57079633, -0.78539816]), array([ 0.        ,  1.57079633, -0.52359878]), array([0.        , 1.57079633, 0.        ]), array([0.        , 1.57079633, 0.52359878]), array([0.        , 1.57079633, 1.04719755]), array([0.        , 1.04719755, 1.57079633]), array([0.        , 0.52359878, 1.57079633]), array([0.        , 0.        , 1.57079633]), array([ 0.        , -0.52359878,  1.57079633]), array([ 0.        , -0.78539816,  1.57079633]), array([ 0.        , -1.04719755,  1.57079633]), array([ 0.        , -1.04719755,  1.04719755]), array([ 0.        , -1.04719755,  0.78539816]), array([ 0.        , -1.57079633,  1.04719755]), array([0.52359878, 0.        , 1.57079633])])
 
         camera_object_list = []
         world_effector_list = []
 
+        res_i = []
         for i, angles in enumerate(sample_rpy):
             success = self.go_to_rpy(sample_distance, list(angles))
             if not success:
+                print("not happened")
                 continue
 
-            rospy.sleep(0.5)
+            # rospy.sleep(0.5)
 
-            camera_object = self.get_aruco()
-            if not camera_object:
-                continue
+            res_i.append(i)
 
-            world_effector = self.getTransforms("/left_base_link", "/left_tool")
+            # camera_object = self.get_marker()
+            # if not camera_object:
+            #     continue
 
-            camera_object_list.append(camera_object)
-            world_effector_list.append(world_effector)
+            # world_effector = self.getTransforms("/left_base_link", "/left_tool")
 
+            # camera_object_list.append(camera_object)
+            # world_effector_list.append(world_effector)
+
+        print(res_i)
         calibration = self.srv_calibrate(TransformArray(transforms=camera_object_list), TransformArray(transforms=world_effector_list))
 
         print(calibration)
