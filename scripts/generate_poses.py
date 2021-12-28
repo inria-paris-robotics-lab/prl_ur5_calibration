@@ -79,11 +79,18 @@ class PoseGenerator():
         return pose_look
 
 
-    def generate_samples(self, config_file):
+    def generate_samples(self):
         print("Generating samples...")
+
+        # Read configurations
+        cfg_file = open(self.files_path + "sample_config.yaml", "r")
+        import yaml
+        cfg = yaml.safe_load(cfg_file)
+        cfg_file.close()
+
         # Generate angles to try
-        sample_distance = 0.45
-        interest_angles = [0, np.pi/6, -np.pi/6, np.pi/4, -np.pi/4, np.pi/3, -np.pi/3, np.pi/2, -np.pi/2]
+        sample_distance = cfg["distance"]
+        interest_angles = [eval(angle) if isinstance(angle, str) else angle for angle in cfg["angles"]]
         sample_rpy = []
         for r in tqdm(interest_angles):
             for p in interest_angles:
@@ -152,14 +159,12 @@ if __name__ == "__main__":
     filter_reachable = rospy.get_param("~filter_reachable", True)   # Filter the initial sampling : test is each pose can be achieved by the robot
     filter_decimate = rospy.get_param("~filter_decimate", True)     # Filter the reachable poses : keep only the n poses that are the farther away from each other
 
-    sampling_config_file = rospy.get_param("~sampling_config_file", "files/sampling_config.yaml")
-
     n_poses = rospy.get_param("~n_poses", 20) # Number of final poses to generate
 
     node = PoseGenerator()
 
     if generate_samples:
-        node.generate_samples(sampling_config_file)
+        node.generate_samples()
 
     if filter_reachable:
         node.filter_reachable()
