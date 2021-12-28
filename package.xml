@@ -50,6 +50,8 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <exec_depend>rospy</exec_depend>
+  <depend>prl_aruco_visp</depend>
+  <depend>prl_hpp</depend>
   <!-- <exec_depend>sensor_msgs</exec_depend> -->
 
 

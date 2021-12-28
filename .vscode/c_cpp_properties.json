@@ -1,0 +1,28 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/home/earlaud/Documents/igors_demo/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/earlaud/Documents/igors_demo/src/Universal_Robots_ROS_Driver/controller_stopper/include/**",
+        "/home/earlaud/Documents/igors_demo/src/onrobot_ros/onrobot_gazebo/include/**",
+        "/home/earlaud/Documents/igors_demo/src/realsense_gazebo_plugin/include/**",
+        "/home/earlaud/Documents/igors_demo/src/robotiq/robotiq_2f_gripper_action_server/include/**",
+        "/home/earlaud/Documents/igors_demo/src/robotiq/robotiq_2f_gripper_control/include/**",
+        "/home/earlaud/Documents/igors_demo/src/robotiq/robotiq_3f_gripper_control/include/**",
+        "/home/earlaud/Documents/igors_demo/src/robotiq/robotiq_ethercat/include/**",
+        "/home/earlaud/Documents/igors_demo/src/robotiq/robotiq_ft_sensor/include/**",
+        "/home/earlaud/Documents/igors_demo/src/Universal_Robots_ROS_Driver/ur_calibration/include/**",
+        "/home/earlaud/Documents/igors_demo/src/universal_robot/ur_kinematics/include/**",
+        "/home/earlaud/Documents/igors_demo/src/Universal_Robots_ROS_Driver/ur_robot_driver/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ],
+  "version": 4
+}
