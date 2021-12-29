@@ -110,9 +110,6 @@ class PoseGenerator():
         print("Filtering reachable poses...")
         # Init the robot and planner
         from prl_hpp.ur5 import robot, planner
-        planner = planner
-        robot = robot
-
         planner.lock_grippers()
         planner.lock_right_arm()
         planner.set_velocity_limit(0.25)
