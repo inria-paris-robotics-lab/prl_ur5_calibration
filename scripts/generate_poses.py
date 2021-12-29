@@ -102,7 +102,7 @@ class PoseGenerator():
         sample_rpy = np.array(sample_rpy)
 
         sample_pose = [self.rpy_to_pose(sample_distance, list(rpy)) for rpy in sample_rpy]
-        pickle.dump(sample_pose, open(self.files_path + "samples.p", "wb"))
+        pickle.dump(sample_pose, open(self.files_path + "poses_sample.p", "wb"))
         print(F"{len(sample_pose)} samples generated.\n")
 
     def filter_reachable(self):
@@ -119,7 +119,7 @@ class PoseGenerator():
         planner.set_acceleration_limit(0.25)
 
         # Load the sampled poses
-        poses_sample = pickle.load(open(self.files_path + "samples.p", "rb"))
+        poses_sample = pickle.load(open(self.files_path + "poses_sample.p", "rb"))
 
         def is_pose_achievable(pose):
             ''' Test if a pose is achievable by the robot (path and final pose)'''
@@ -137,14 +137,14 @@ class PoseGenerator():
             if is_pose_achievable(pose):
                 poses_reachable.append(pose)
 
-        pickle.dump(poses_reachable, open(self.files_path + "reachables.p", "wb"))
+        pickle.dump(poses_reachable, open(self.files_path + "poses_reachable.p", "wb"))
         print(F"{len(poses_reachable)} reachable poses found from samples.\n")
 
     def filter_decimate(self, n):
         ''' Find the n "most representative" poses (ie. the one that are the most spaced out) from the all reachable poses. '''
         print("Decimate reachable poses...")
         # Load the reachable poses
-        poses = pickle.load(open(self.files_path + "reachables.p", "rb"))
+        poses = pickle.load(open(self.files_path + "poses_reachable.p", "rb"))
 
         if(len(poses) > n):
             pbar = tqdm(total=len(poses)-n)
@@ -154,7 +154,7 @@ class PoseGenerator():
                 poses = remove_closest(poses, 1)
                 pbar.update(1)
 
-        pickle.dump(poses, open(self.files_path + "finals.p", "wb"))
+        pickle.dump(poses, open(self.files_path + "poses_calibration.p", "wb"))
         print(F"Done decimating. {len(poses)} reachable poses kept.\n")
 
 
@@ -188,15 +188,15 @@ if __name__ == "__main__":
     legend = []
     if create_plot:
         if plot_samples:
-            poses_sample = pickle.load(open(node.files_path + "samples.p", "rb"))
+            poses_sample = pickle.load(open(node.files_path + "poses_sample.p", "rb"))
             ax = plot_points(poses_sample, ax=ax, color='k', marker='.', markersize=5)
             legend.append("Sampled poses")
         if plot_reachables:
-            poses_reachables = pickle.load(open(node.files_path + "reachables.p", "rb"))
+            poses_reachables = pickle.load(open(node.files_path + "poses_reachable.p", "rb"))
             ax = plot_points(poses_reachables, ax=ax, color='b', marker='2', markersize=25)
             legend.append("Reachables poses")
         if plot_finals:
-            poses_final = pickle.load(open(node.files_path + "finals.p", "rb"))
+            poses_final = pickle.load(open(node.files_path + "poses_calibration.p", "rb"))
             ax = plot_points(poses_final, ax=ax, color='r', marker='v', markersize=30)
             legend.append("Final set")
         if ax:
