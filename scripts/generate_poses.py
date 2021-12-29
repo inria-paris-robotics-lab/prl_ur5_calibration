@@ -37,7 +37,7 @@ def remove_closest(array, k):
 
     return array
 
-def plot_points(points, ax = None, color = 'b', marker = '.'):
+def plot_points(points, ax = None, color = 'b', marker = '.', markersize=15):
     xx = [p[0][0] for p in points]
     yy = [p[0][1] for p in points]
     zz = [p[0][2] for p in points]
@@ -46,11 +46,11 @@ def plot_points(points, ax = None, color = 'b', marker = '.'):
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
 
-    ax.scatter(xx, yy, zz, color=color, marker=marker)
+    ax.scatter(xx, yy, zz, color=color, marker=marker, s=markersize)
 
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('Z Label')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
 
     return ax
 
@@ -128,6 +128,8 @@ class PoseGenerator():
         # Filter all the non reachable poses
         poses_reachable = []
         for pose in tqdm(poses_sample):
+            if pose[0][2] < 0: # Basic filter as the camera shouldn't be below the table surface...
+                continue
             if is_pose_achievable(pose):
                 poses_reachable.append(pose)
 
@@ -147,7 +149,7 @@ class PoseGenerator():
                 poses = remove_closest(poses, 1)
                 pbar.update(1)
 
-        pickle.dump(poses, open(self.files_path + "final.p", "wb"))
+        pickle.dump(poses, open(self.files_path + "finals.p", "wb"))
         print(F"Done decimating. {len(poses)} reachable poses kept.\n")
 
 
@@ -158,6 +160,11 @@ if __name__ == "__main__":
     generate_samples = rospy.get_param("~generate_samples", True) # Generate or not the initial sampling of space
     filter_reachable = rospy.get_param("~filter_reachable", True)   # Filter the initial sampling : test is each pose can be achieved by the robot
     filter_decimate = rospy.get_param("~filter_decimate", True)     # Filter the reachable poses : keep only the n poses that are the farther away from each other
+
+    create_plot = rospy.get_param("~plot", True)     # Plot the poses
+    plot_samples = rospy.get_param("~plot_samples", True)
+    plot_reachables = rospy.get_param("~plot_reachables", True)
+    plot_finals = rospy.get_param("~plot_finals", True)
 
     n_poses = rospy.get_param("~n_poses", 20) # Number of final poses to generate
 
@@ -171,3 +178,25 @@ if __name__ == "__main__":
 
     if filter_decimate:
         node.filter_decimate(n_poses)
+
+    ax = None
+    legend = []
+    if create_plot:
+        if plot_samples:
+            poses_sample = pickle.load(open(node.files_path + "samples.p", "rb"))
+            ax = plot_points(poses_sample, ax=ax, color='k', marker='.', markersize=5)
+            legend.append("Sampled poses")
+        if plot_reachables:
+            poses_reachables = pickle.load(open(node.files_path + "reachables.p", "rb"))
+            ax = plot_points(poses_reachables, ax=ax, color='b', marker='2', markersize=25)
+            legend.append("Reachables poses")
+        if plot_finals:
+            poses_final = pickle.load(open(node.files_path + "finals.p", "rb"))
+            ax = plot_points(poses_final, ax=ax, color='r', marker='v', markersize=30)
+            legend.append("Final set")
+        if ax:
+            ax.legend(legend)
+            ax.view_init(elev=90, azim=-180)
+        plt.show(block=False)
+
+    input("Press enter to exit...")
