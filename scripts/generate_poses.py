@@ -5,16 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pickle
-import rospkg
 from tqdm import tqdm
 
 def sq_dist(p1, p2):
-    '''Squared distance between two points'''
+    ''' Squared distance between two points '''
     vw = pin.log6(pin.XYZQUATToSE3(p1[0]+p1[1]).inverse() * pin.XYZQUATToSE3(p2[0]+p2[1]))
     return np.linalg.norm(vw.linear)**2 + 0*np.linalg.norm(vw.angular) **2
 
 def sq_dist_array(point, array, skip=[]):
-    '''Distances between a point and the two closest points of an array'''
+    ''' Distances between a point and the two closest points of an array '''
     mini_d = float('inf')
     mini_d_2 = float('inf')
     for i, p2 in enumerate(array):
@@ -28,7 +27,7 @@ def sq_dist_array(point, array, skip=[]):
 
 
 def remove_closest(array, k):
-    '''Remove the closest point from an array of points'''
+    ''' Remove the closest point from an array of points '''
     distances = [sq_dist_array(array[i], array, [i]) for i in range(len(array))]
 
     idx = distances.index(sorted(distances)[0]) #argmin (over first element, then second)
@@ -38,6 +37,7 @@ def remove_closest(array, k):
     return array
 
 def plot_points(points, ax = None, color = 'b', marker = '.', markersize=15):
+    ''' Plot poses in 3D '''
     xx = [p[0][0] for p in points]
     yy = [p[0][1] for p in points]
     zz = [p[0][2] for p in points]
@@ -56,10 +56,12 @@ def plot_points(points, ax = None, color = 'b', marker = '.', markersize=15):
 
 class PoseGenerator():
     def __init__(self) -> None:
+        import rospkg
         current_path = rospkg.RosPack().get_path("prl_ur5_calibration")
         self.files_path = current_path + "/files/"
 
     def rpy_to_pose(self, l, rpy):
+        ''' Convert a spherical coordinates into a cartesian pose (with the camera optical frame pointing to the orgin) '''
         # c = camera optical frame
         # t = tool frame
         # b = base frame
@@ -80,9 +82,10 @@ class PoseGenerator():
 
 
     def generate_samples(self):
+        ''' Generate a set of tool poses such that the camera frame is on a sphere (centered on the origin) and pointing to the origin. '''
         print("Generating samples...")
 
-        # Read configurations
+        # Read configuration file
         cfg_file = open(self.files_path + "sample_config.yaml", "r")
         import yaml
         cfg = yaml.safe_load(cfg_file)
@@ -103,6 +106,7 @@ class PoseGenerator():
         print(F"{len(sample_pose)} samples generated.\n")
 
     def filter_reachable(self):
+        ''' Filter all the sampled poses. Keep the one that have valid solutions (without collision). '''
         print("Filtering reachable poses...")
         # Init the robot and planner
         from prl_hpp.ur5 import robot, planner
@@ -137,6 +141,7 @@ class PoseGenerator():
         print(F"{len(poses_reachable)} reachable poses found from samples.\n")
 
     def filter_decimate(self, n):
+        ''' Find the n "most representative" poses (ie. the one that are the most spaced out) from the all reachable poses. '''
         print("Decimate reachable poses...")
         # Load the reachable poses
         poses = pickle.load(open(self.files_path + "reachables.p", "rb"))
