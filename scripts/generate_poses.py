@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import pinocchio as pin
+from prl_pinocchio.tools.utils import euler_to_quaternion
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -64,19 +65,19 @@ class PoseGenerator():
         ''' Convert a spherical coordinates into a cartesian pose (with the camera optical frame pointing to the orgin) '''
         # c = camera optical frame
         # t = tool frame
+        # g = goal frame
         # b = base frame
 
-        tMc = pin.XYZQUATToSE3([0.03201936605892359, 0.03266617144909692, 0.16032922582431414, -0.003042505015539654, -0.0005310059444330884, -0.9999890872814666, 0.00350625311478453])
+        tMc = pin.XYZQUATToSE3([0.032, 0.033, -0.081, 0, 0, 1, 0])
 
+        bMb = pin.XYZQUATToSE3([0, 0, 0] + euler_to_quaternion(rpy)) # Rotate the base frame
         bMc = pin.XYZQUATToSE3([0,0,l, 0,1,0,0])
-        cMc = pin.exp6(np.array([0]*3 + rpy))
-        bMc = cMc * bMc
 
-        bMt = bMc * tMc.inverse()
+        bMt = bMb * bMc * tMc.inverse()
 
-        # go at pose
+        # pose
         xyzquat_look = pin.SE3ToXYZQUAT(bMt)
-        pose_look = [list(xyzquat_look[:3]), list(xyzquat_look[3:])]
+        pose_look = [list(xyzquat_look[:3]), list(xyzquat_look[3:] / np.linalg.norm(xyzquat_look[3:]))]
 
         return pose_look
 
@@ -98,10 +99,10 @@ class PoseGenerator():
         for r in tqdm(interest_angles):
             for p in interest_angles:
                 for y in interest_angles:
-                    sample_rpy.append(np.array([r, p, y]))
-        sample_rpy = np.array(sample_rpy)
+                    sample_rpy.append([r, p, y])
+        sample_rpy = sample_rpy
 
-        sample_pose = [self.rpy_to_pose(sample_distance, list(rpy)) for rpy in sample_rpy]
+        sample_pose = [self.rpy_to_pose(sample_distance, rpy) for rpy in sample_rpy]
         pickle.dump(sample_pose, open(self.files_path + "poses_sample.p", "wb"))
         print(F"{len(sample_pose)} samples generated.\n")
 
@@ -123,6 +124,7 @@ class PoseGenerator():
             try:
                 planner.make_gripper_approach(robot.left_gripper_name, *pose, approach_distance = 0, do_not_plan = True)
             except AssertionError as e:
+                # print(e)
                 return False
             return True
 
