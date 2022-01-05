@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- hand2eye calibration service -->
+    <node name="visp_hand2eye_calibration_calibrator" pkg="visp_hand2eye_calibration" type="visp_hand2eye_calibration_calibrator"/>
+
+    <!-- Tracker detection -->
+    <include file="$(find prl_aruco_visp)/launch/aruco_visp.launch">
+        <!-- <arg name="camera" value="$(arg camera)"/>
+        <arg name="image" value="$(arg image)"/>
+        <arg name="fiducial_size" value="0.12"/> -->
+    </include>
+
+    <!-- Run calibration node -->
+    <node pkg="prl_ur5_calibration" type="run_calibration.py" name="$(anon run_calibration.py)"/>
+</launch>

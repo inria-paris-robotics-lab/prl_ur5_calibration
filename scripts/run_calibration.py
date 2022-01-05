@@ -3,16 +3,12 @@ import rospy
 import pickle
 import rospkg
 
-import pinocchio as pin
-import numpy as np
 from std_msgs.msg import Int8
 from geometry_msgs.msg import Transform, Vector3, Quaternion, PoseStamped
 from visp_hand2eye_calibration.srv import compute_effector_camera_quick
 from visp_hand2eye_calibration.msg import TransformArray
 import tf
-
-from prl_hpp.ur5 import robot, planner, commander_left_arm, commander_right_arm
-
+from tqdm import tqdm
 
 class Calibration:
     def __init__(self, poses):
@@ -65,7 +61,7 @@ class Calibration:
         camera_object_list = []
         world_effector_list = []
 
-        for pose in self.poses:
+        for pose in tqdm(self.poses):
             success = self.go_at_pose(pose)
             if not success:
                 continue
@@ -89,7 +85,7 @@ if __name__ == "__main__":
     # Read calibration poses
     poses_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/poses_calibration.p"
     poses_file = open(poses_filepath, "rb")
-    poses = pickle.load(poses_filepath)
+    poses = pickle.load(poses_file)
     poses_file.close()
 
     # Run calibration
