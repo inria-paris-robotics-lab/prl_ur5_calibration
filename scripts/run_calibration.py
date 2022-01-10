@@ -25,9 +25,11 @@ class Calibration:
         self.planner.lock_right_arm()
         self.planner.set_velocity_limit(0.25)
         self.planner.set_acceleration_limit(0.25)
+        self.planner.set_planning_timeout(10.0)
         self.commander_left_arm.start_trajecotry()
 
         # Calibration topics
+        rospy.loginfo("Waiting for service compute_effector_camera_quick...")
         rospy.wait_for_service('compute_effector_camera_quick')
         self.srv_calibrate = rospy.ServiceProxy('compute_effector_camera_quick', compute_effector_camera_quick)
 
@@ -52,6 +54,9 @@ class Calibration:
 
     def go_at_pose(self, pose):
         path = self.planner.make_gripper_approach(self.robot.left_gripper_name, *pose, approach_distance = 0)
+        self.planner.pp(path.id)
+        rospy.loginfo("Press enter to execute...")
+        input("(Press enter to execute...)")
         self.commander_left_arm.execute_path(path)
 
 
