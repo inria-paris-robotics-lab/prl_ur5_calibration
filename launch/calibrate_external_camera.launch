@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!-- Calibrate the extrinsics of a camera mounted externally to the robot -->
+<launch>
+    <arg name="camera_name" doc="name of the camera"/>
+    <arg name="camera_topic" value="/$(arg camera_name)/color" doc="Topic of the camera"/>
+
+    <!-- Name of the visp_auto_tracker node -->
+    <arg name="tracker_node" value="$(anon visp_auto_tracker)" doc="Used internally, do not set"/>
+
+    <!-- VISP tracker-->
+    <node name="$(arg tracker_node)" pkg="visp_auto_tracker" type="visp_auto_tracker">
+        <remap from="/$(arg tracker_node)/image_raw" to="$(arg camera_topic)/image_raw"/>
+        <remap from="/$(arg tracker_node)/camera_info" to="$(arg camera_topic)/camera_info"/>
+        <param name="model_path" value="$(find prl_ur5_calibration)/files/models"/>
+        <param name="model_name" value="april_pattern"/>
+        <param name="debug_display" value="true"/>
+    </node>
+
+    <!-- Run calibration node -->
+    <node pkg="prl_ur5_calibration" type="calibrate_external_camera.py" name="$(anon calibrate_external_camera.py)">
+        <param name="camera_name" value="$(arg camera_name)"/>
+        <param name="tracker_node" value="$(arg tracker_node)"/>
+    </node>
+</launch>

@@ -158,6 +158,7 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/generate_poses.py
   scripts/run_calibration.py
+  scripts/calibrate_external_camera.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
