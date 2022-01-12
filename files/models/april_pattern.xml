@@ -30,8 +30,8 @@
 		<mask_border>0</mask_border>
 	</klt>
 	<face>
-  		<angle_appear>75</angle_appear> 
-  		<angle_disappear>75</angle_disappear>
+  		<angle_appear>85</angle_appear> 
+  		<angle_disappear>85</angle_disappear>
 	</face>
 </conf>
 
