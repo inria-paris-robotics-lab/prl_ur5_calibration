@@ -4,12 +4,30 @@ import pickle
 import rospkg
 
 from std_msgs.msg import Int8
-from geometry_msgs.msg import Transform, Vector3, Quaternion, PoseStamped
+from geometry_msgs.msg import Transform, Vector3, Quaternion, PoseStamped, Pose, Point, Quaternion
 from visp_hand2eye_calibration.srv import compute_effector_camera_quick
 from visp_hand2eye_calibration.msg import TransformArray
 import tf
 from tqdm import tqdm
 
+import numpy as np
+import pinocchio as pin
+
+def average_consecutive_meas(n, tracker_topic):
+    vw_sum = np.zeros(6)
+    for i in range(n):
+        status = rospy.wait_for_message(tracker_topic + "/status", Int8)
+        if(status.data != 3): # Not tracking
+            return False, None
+        transf_marker = rospy.wait_for_message(tracker_topic + "/object_position", PoseStamped)
+        pose = transf_marker.pose
+        position_orientation = [pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
+        vw = pin.log6(pin.XYZQUATToSE3(position_orientation)).np
+        vw_sum += vw
+    vw_avg = vw_sum / n
+    se3_avg = pin.exp6(vw_avg)
+    pose_avg = pin.SE3ToXYZQUAT(se3_avg)
+    return True, Pose(position = Point(*pose_avg[:3]), orientation = Quaternion(*pose_avg[3:]))
 class Calibration:
     def __init__(self, poses):
         # Transformations
@@ -43,21 +61,26 @@ class Calibration:
 
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
-    def get_marker(self, n_tries=50, delay_tries=0.02):
-        for _ in range(n_tries):
-            status = rospy.wait_for_message("/visp_auto_tracker/status", Int8)
-            if(status.data > 1):
-                transf_marker = rospy.wait_for_message("/visp_auto_tracker/object_position", PoseStamped)
-                return transf_marker.pose
-            rospy.sleep(delay_tries)
+    def get_marker(self):
+        for _ in range(50): # Tries
+            success, pose = average_consecutive_meas(30, "/visp_auto_tracker")
+            if success:
+                return pose
+            rospy.sleep(0.2)
+        rospy.logwarn("Failed to get marker")
         return None
 
     def go_at_pose(self, pose):
-        path = self.planner.make_gripper_approach(self.robot.left_gripper_name, *pose, approach_distance = 0)
-        self.planner.pp(path.id)
-        rospy.loginfo("Press enter to execute...")
-        input("(Press enter to execute...)")
-        self.commander_left_arm.execute_path(path)
+        try:
+            path = self.planner.make_gripper_approach(self.robot.left_gripper_name, *pose, approach_distance = 0)
+            # self.planner.pp(path.id)
+            rospy.loginfo("Press enter to execute...")
+            input("(Press enter to execute...)")
+            self.commander_left_arm.execute_path(path)
+        except:
+            rospy.loginfo("Failed to plan path")
+            return False
+        return True
 
 
     def run(self):
@@ -71,11 +94,16 @@ class Calibration:
             if not success:
                 continue
 
+            rospy.sleep(1.0)
+
             camera_object = self.get_marker()
             if not camera_object:
                 continue
 
             world_effector = self.getTransforms("/left_base_link", "/left_tool")
+
+            world_camera = self.getTransforms("/left_base_link", "/left_camera_color_optical_frame")
+            # Todo: check that world_camera > camera_obect ~= O
 
             camera_object_list.append(camera_object)
             world_effector_list.append(world_effector)
