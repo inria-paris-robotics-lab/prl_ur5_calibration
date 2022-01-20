@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
 from prl_pinocchio.tools.utils import compare_poses
+import pinocchio as pin
+import numpy as np
 
 class Calibration:
     def __init__(self, poses):
@@ -58,8 +60,6 @@ class Calibration:
         try:
             path = self.planner.make_gripper_approach(self.robot.left_gripper_name, *pose, approach_distance = 0)
             # self.planner.pp(path.id)
-            rospy.loginfo("Press enter to execute...")
-            input("(Press enter to execute...)")
             self.commander_left_arm.execute_path(path)
         except:
             rospy.loginfo("Failed to plan path")
@@ -73,6 +73,8 @@ class Calibration:
         world_effector_list = []
 
         for pose in tqdm(self.poses):
+            assert not rospy.is_shutdown()
+
             # Plan and go at pose
             success = self.go_at_pose(pose)
             if not success:
@@ -93,18 +95,42 @@ class Calibration:
             camera_object = self.get_marker()
             if not camera_object:
                 continue
+            camera_object = Transform(translation = camera_object.position, rotation = camera_object.orientation)
 
             # Get the effector position
-            world_effector = self.getTransforms("/left_base_link", "/left_tool")
+            world_effector = self.getTransforms("/prl_ur5_base", "/left_tool")
 
-            world_camera = self.getTransforms("/left_base_link", "/left_camera_color_optical_frame")
-            # Todo: check that world_camera > camera_obect ~= O
+            # Check rough position estimation
+            effector_camera = self.getTransforms("/left_tool", "/left_camera_color_optical_frame")
+            wMe = pin.XYZQUATToSE3([world_effector.translation.x, world_effector.translation.y, world_effector.translation.z,
+                                    world_effector.rotation.x, world_effector.rotation.y, world_effector.rotation.z, world_effector.rotation.w])
+            eMc = pin.XYZQUATToSE3([effector_camera.translation.x, effector_camera.translation.y, effector_camera.translation.z,
+                                    effector_camera.rotation.x, effector_camera.rotation.y, effector_camera.rotation.z, effector_camera.rotation.w])
+            cMo = pin.XYZQUATToSE3([camera_object.translation.x, camera_object.translation.y, camera_object.translation.z,
+                                    camera_object.rotation.x, camera_object.rotation.y, camera_object.rotation.z, camera_object.rotation.w])
+            wMo = wMe * eMc * cMo
 
-            #Save values
+            trans_err_vect = wMo.translation
+            rot_err_vect = pin.log3(wMo.rotation)
+            trans_err = np.linalg.norm(trans_err_vect)
+            rot_err = np.linalg.norm(rot_err_vect)
+
+            rospy.logwarn(F"Marker position:\n{wMo}")
+
+            if(trans_err > 0.05 or rot_err > 0.2):
+                rospy.logerr("Marker measured too far away from origin: point discarded"
+                            +F"\n(translation error {trans_err} (wrt 0.05), rotation error {rot_err} (wrt 0.2))")
+                continue
+
+            # Save values
             camera_object_list.append(camera_object)
             world_effector_list.append(world_effector)
 
+        # Compute the calibration
         calibration = self.srv_calibrate(TransformArray(transforms=camera_object_list), TransformArray(transforms=world_effector_list))
+
+        # Print the result
+        rospy.logwarn("Calibration:\n"+str(calibration))
 
         return calibration
 
