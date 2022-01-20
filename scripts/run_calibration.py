@@ -3,31 +3,14 @@ import rospy
 import pickle
 import rospkg
 
-from std_msgs.msg import Int8
-from geometry_msgs.msg import Transform, Vector3, Quaternion, PoseStamped, Pose, Point, Quaternion
+from geometry_msgs.msg import Transform, Vector3, Quaternion, Quaternion
 from visp_hand2eye_calibration.srv import compute_effector_camera_quick
 from visp_hand2eye_calibration.msg import TransformArray
 import tf
 from tqdm import tqdm
 
-import numpy as np
-import pinocchio as pin
+from prl_ur5_calibration.utils import visp_meas_filter
 
-def average_consecutive_meas(n, tracker_topic):
-    vw_sum = np.zeros(6)
-    for i in range(n):
-        status = rospy.wait_for_message(tracker_topic + "/status", Int8)
-        if(status.data != 3): # Not tracking
-            return False, None
-        transf_marker = rospy.wait_for_message(tracker_topic + "/object_position", PoseStamped)
-        pose = transf_marker.pose
-        position_orientation = [pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w]
-        vw = pin.log6(pin.XYZQUATToSE3(position_orientation)).np
-        vw_sum += vw
-    vw_avg = vw_sum / n
-    se3_avg = pin.exp6(vw_avg)
-    pose_avg = pin.SE3ToXYZQUAT(se3_avg)
-    return True, Pose(position = Point(*pose_avg[:3]), orientation = Quaternion(*pose_avg[3:]))
 class Calibration:
     def __init__(self, poses):
         # Transformations
@@ -63,7 +46,7 @@ class Calibration:
 
     def get_marker(self):
         for _ in range(50): # Tries
-            success, pose = average_consecutive_meas(30, "/visp_auto_tracker")
+            success, pose = visp_meas_filter(30, "/visp_auto_tracker")
             if success:
                 return pose
             rospy.sleep(0.2)

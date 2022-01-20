@@ -5,17 +5,19 @@ from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseStamped
 from tf import transformations
 
+from prl_ur5_calibration.utils import visp_meas_filter
+
 class CameraCalibration:
     def __init__(self, camera_name, tracker_node):
         self.camera_name= camera_name
         self.tracker_node = tracker_node
 
     def get_marker(self):
-        while True:
-            status = rospy.wait_for_message(F"/{self.tracker_node}/status", Int8)
-            if(status.data == 3): # Wait until the model is tracked
-                transf_marker = rospy.wait_for_message(F"/{self.tracker_node}/object_position", PoseStamped)
-                return transf_marker.pose
+        while not rospy.is_shutdown():
+            success, pose = visp_meas_filter(1, self.tracker_node)
+            if success:
+                return pose
+            rospy.logwarn("Tracking not stable enough, retrying...")
 
     def run(self):
         # Get marker transformation
