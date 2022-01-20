@@ -41,9 +41,8 @@ class Calibration:
         self.poses = poses
 
     def getTransforms(self, from_f, to_f):
-        now = rospy.Time.now()
-        self.tf_listener.waitForTransform(from_f, to_f, now, rospy.Duration(4.0))
-        (trans,rot) = self.tf_listener.lookupTransform(from_f, to_f, now)
+        latest_t = self.tf_listener.getLatestCommonTime(from_f, to_f)
+        (trans, rot) = self.tf_listener.lookupTransform(from_f, to_f, latest_t)
 
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
