@@ -8,13 +8,14 @@ from tf import transformations
 from prl_ur5_calibration.utils import visp_meas_filter
 
 class CameraCalibration:
-    def __init__(self, camera_name, tracker_node):
+    def __init__(self, sample_nb, camera_name, tracker_node):
+        self.sample_nb = sample_nb
         self.camera_name= camera_name
         self.tracker_node = tracker_node
 
     def get_marker(self):
         while not rospy.is_shutdown():
-            success, pose = visp_meas_filter(1, self.tracker_node)
+            success, pose = visp_meas_filter(self.sample_nb, self.tracker_node)
             if success:
                 return pose
             rospy.logwarn("Tracking not stable enough, retrying...")
@@ -37,7 +38,7 @@ class CameraCalibration:
         res_quat = transformations.quaternion_from_matrix(res_mat)
 
         # User-friendly print the result
-        msg = make_msg(self.camera_name, res_trans, res_quat)
+        msg = make_msg(self.sample_nb, self.camera_name, res_trans, res_quat)
         rospy.logwarn(msg)
 
     def done(self):
@@ -45,12 +46,14 @@ class CameraCalibration:
         rospy.loginfo(F"Done calibrating > Killing {self.tracker_node} node")
         os.system(F"rosnode kill {self.tracker_node}")
 
-def make_msg(camera_name, trans, rot):
+def make_msg(sample_nb, camera_name, trans, rot):
     return F"""\n
 ############################################
 # Generated from calibrate_external_camera #
 ############################################
 # For camera : {camera_name}
+# (Averaged on {sample_nb} samples)
+
   position:
     x: {trans[0]}
     y: {trans[1]}
@@ -67,8 +70,9 @@ if __name__ == "__main__":
 
     camera_name = rospy.get_param("~camera_name") # Name of the camera for print purposes
     tracker_node = rospy.get_param("~tracker_node") # Get the name of visp_auto_tracker node
+    sample_nb = rospy.get_param("~sample_nb") # Number of samples for averaging the pose
 
     # Run calibration
-    calibration = CameraCalibration(camera_name, tracker_node)
+    calibration = CameraCalibration(sample_nb, camera_name, tracker_node)
     calibration.run()
     calibration.done()

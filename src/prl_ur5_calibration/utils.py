@@ -1,10 +1,9 @@
 import rospy
-
+import numpy as np
+import pinocchio as pin
 from std_msgs.msg import Int8
 from geometry_msgs.msg import Quaternion, PoseStamped, Pose, Point, Quaternion
 
-import numpy as np
-import pinocchio as pin
 
 def average_poses(poses):
     """
@@ -20,7 +19,8 @@ def average_poses(poses):
     """
     vw_sum = np.zeros(6)
     for pose in poses:
-        vw = pin.log6(pin.XYZQUATToSE3([pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])).np
+        se3 = pin.XYZQUATToSE3([pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
+        vw = pin.log6(se3).np
         vw_sum += vw
     vw_avg = vw_sum / len(poses)
     se3_avg = pin.exp6(vw_avg)

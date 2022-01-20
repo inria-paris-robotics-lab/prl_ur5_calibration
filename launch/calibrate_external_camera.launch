@@ -3,6 +3,8 @@
 <launch>
     <arg name="camera_name" doc="name of the camera"/>
     <arg name="camera_topic" value="/$(arg camera_name)/color" doc="Topic of the camera"/>
+    <arg name="sample_nb" value="10" doc="Number of sample for averaging the position"/>
+
 
     <!-- Name of the visp_auto_tracker node -->
     <arg name="tracker_node" value="$(anon visp_auto_tracker)" doc="Used internally, do not set"/>
@@ -20,5 +22,6 @@
     <node pkg="prl_ur5_calibration" type="calibrate_external_camera.py" name="$(anon calibrate_external_camera.py)">
         <param name="camera_name" value="$(arg camera_name)"/>
         <param name="tracker_node" value="$(arg tracker_node)"/>
+        <param name="sample_nb" value="$(arg sample_nb)"/>
     </node>
 </launch>
