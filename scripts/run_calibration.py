@@ -10,6 +10,7 @@ import tf
 from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
+from prl_pinocchio.tools.utils import compare_poses
 
 class Calibration:
     def __init__(self, poses):
@@ -65,7 +66,6 @@ class Calibration:
             return False
         return True
 
-
     def run(self):
         # self.set_gripper("open")
 
@@ -73,21 +73,34 @@ class Calibration:
         world_effector_list = []
 
         for pose in tqdm(self.poses):
+            # Plan and go at pose
             success = self.go_at_pose(pose)
             if not success:
                 continue
 
-            rospy.sleep(1.0)
+            # Wait for the robot to be at the exact position
+            is_at_pose = False
+            rospy.logwarn("Wait for the robot to be exactly at the pose...")
+            while(not rospy.is_shutdown()):
+                rospy.sleep(2.5)
+                gripper_pose = self.robot.get_frame_pose(self.robot.get_gripper_link(self.robot.left_gripper_name))
+                is_at_pose = compare_poses(pose[0]+pose[1], gripper_pose, threshold=0.002)
+                if is_at_pose:
+                    rospy.logwarn("At pose")
+                    break
 
+            # Get the marker position
             camera_object = self.get_marker()
             if not camera_object:
                 continue
 
+            # Get the effector position
             world_effector = self.getTransforms("/left_base_link", "/left_tool")
 
             world_camera = self.getTransforms("/left_base_link", "/left_camera_color_optical_frame")
             # Todo: check that world_camera > camera_obect ~= O
 
+            #Save values
             camera_object_list.append(camera_object)
             world_effector_list.append(world_effector)
 
