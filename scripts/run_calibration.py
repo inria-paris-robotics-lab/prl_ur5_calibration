@@ -106,7 +106,7 @@ class Calibration:
             while(not rospy.is_shutdown()):
                 rospy.sleep(1.2)
                 gripper_pose = self.robot.get_frame_pose(self.robot.get_gripper_link(self.robot.left_gripper_name))
-                is_at_pose = compare_poses(pose[0]+pose[1], gripper_pose, threshold=0.002)
+                is_at_pose = compare_poses(pose[0]+pose[1], gripper_pose, threshold=0.004)
                 if is_at_pose:
                     rospy.logwarn("At pose")
                     break
