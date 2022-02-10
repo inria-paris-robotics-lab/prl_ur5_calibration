@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from copy import deepcopy
 import rospy
 import pickle
 import rospkg
@@ -64,14 +65,35 @@ class Calibration:
             return False
         return True
 
-    def get_measures(self, poses, logfile, resume=False):
+    def get_measures(self, poses, logfile, recover=False):
         # self.set_gripper("open")
+        meas_log = []
+        poses = deepcopy(poses)
 
-        pose_log = []
-        for pose in tqdm(poses[:3]):
-            pose_log += [[pose, None, None]] # Add a none element at the end of the log. Will be replaced by the real value (if success)
+        # Recover measure to not re-do it
+        recover_cnt = 0
+        if recover:
+            with open(logfile, "rb") as f:
+                recovered_data = pickle.load(f)
+
+            for meas in recovered_data:
+                for p in poses:
+                    if meas[0] == p: # The pose was in the recover file
+                        meas_log.append(meas)
+                        poses.remove(p)
+                        recover_cnt += 1
+                        break
+
+            rospy.logwarn(F"Recovered {recover_cnt} measures (over the {len(recovered_data)} previously saved). {len(poses)} measures left to do.")
+
+        # Loop over the remaining poses
+        for pose in tqdm(poses):
+            # Save all the measures taken so far, in case of crash
             with open(logfile, "wb") as f:
-                pickle.dump(pose_log, f)
+                pickle.dump(meas_log, f)
+
+            # Add a none element at the end of the log. Will be replaced by the real value (if success)
+            meas_log += [[pose, None, None]]
 
             # Plan and go at pose
             success = self._go_at_pose(pose)
@@ -120,9 +142,11 @@ class Calibration:
                 continue
 
             # Save values
-            pose_log[-1] = (pose, camera_object, world_effector)
-            with open(logfile, "wb") as f:
-                pickle.dump(pose_log, f)
+            meas_log[-1] = (pose, camera_object, world_effector)
+
+        # Save all the measures
+        with open(logfile, "wb") as f:
+            pickle.dump(meas_log, f)
 
     def compute_calibration(self, logfile):
         camera_object_list = []
@@ -155,7 +179,12 @@ if __name__ == "__main__":
     # Prepare pickle log file for measures
     measures_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/measures.p"
 
+    # Parameters
+    recover = rospy.get_param("~recover") # Recover measures from a previous run if possible
+    compute_only = rospy.get_param("~compute_only", False) # Only read from the existing measure file and do the computation
+
     # Run calibration
     calibration = Calibration()
-    calibration.get_measures(poses, measures_filepath)
+    if not compute_only:
+        calibration.get_measures(poses, measures_filepath, recover)
     calibration.compute_calibration(measures_filepath)
