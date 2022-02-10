@@ -11,9 +11,13 @@ import tf
 from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
-from prl_pinocchio.tools.utils import compare_poses
+from prl_pinocchio.tools.utils import compare_poses, quaternion_to_euler
 import pinocchio as pin
 import numpy as np
+
+def transform_to_se3(trans):
+    return pin.XYZQUATToSE3([trans.translation.x, trans.translation.y, trans.translation.z,
+                             trans.rotation.x, trans.rotation.y, trans.rotation.z, trans.rotation.w])
 
 class Calibration:
     def __init__(self):
@@ -122,12 +126,9 @@ class Calibration:
 
             # Check rough position estimation
             effector_camera = self._getTransforms("/left_tool", "/left_camera_color_optical_frame")
-            wMe = pin.XYZQUATToSE3([world_effector.translation.x, world_effector.translation.y, world_effector.translation.z,
-                                    world_effector.rotation.x, world_effector.rotation.y, world_effector.rotation.z, world_effector.rotation.w])
-            eMc = pin.XYZQUATToSE3([effector_camera.translation.x, effector_camera.translation.y, effector_camera.translation.z,
-                                    effector_camera.rotation.x, effector_camera.rotation.y, effector_camera.rotation.z, effector_camera.rotation.w])
-            cMo = pin.XYZQUATToSE3([camera_object.translation.x, camera_object.translation.y, camera_object.translation.z,
-                                    camera_object.rotation.x, camera_object.rotation.y, camera_object.rotation.z, camera_object.rotation.w])
+            wMe = transform_to_se3(world_effector)
+            eMc = transform_to_se3(effector_camera)
+            cMo = transform_to_se3(camera_object)
             wMo = wMe * eMc * cMo
 
             trans_err_vect = wMo.translation
@@ -161,9 +162,32 @@ class Calibration:
         # Compute the calibration
         calibration = self.srv_calibrate(TransformArray(transforms=camera_object_list), TransformArray(transforms=world_effector_list))
 
-        # Print the result
-        rospy.logwarn("Calibration:\n"+str(calibration))
-        return calibration
+        # Convert results in same frames as configuration file
+        eMc = transform_to_se3(calibration.effector_camera)
+        bsMe = transform_to_se3(self._getTransforms("/left_camera_bottom_screw_frame", "/left_tool"))
+        bsMc = bsMe * eMc
+
+        wMo_exact = pin.XYZQUATToSE3([0,0,0.005, 0,0,0,1])
+        wMo_meas = transform_to_se3(calibration.world_object)
+        w_oldMw_new = wMo_meas * wMo_exact.inverse()
+
+        wMsl = transform_to_se3(self._getTransforms("/prl_ur5_base", "/stand_link"))
+        slMbl = transform_to_se3(self._getTransforms("/stand_link", "/left_base_link"))
+        slMbl_new = wMsl.inverse() * w_oldMw_new * wMsl * slMbl
+
+        # Print the results
+        rospy.logwarn("\narm_pose:" + self.str_pretty_pose(slMbl_new) + "\ncamera_pose:" + self.str_pretty_pose(bsMc))
+
+    def str_pretty_pose(self, se3):
+        xyzquat = pin.SE3ToXYZQUAT(se3)
+        euler = quaternion_to_euler(list(xyzquat[3:]))
+        return F"""
+        x: {xyzquat[0]}
+        y: {xyzquat[1]}
+        z: {xyzquat[2]}
+        roll: {euler[0]}
+        pitch: {euler[1]}
+        yaw: {euler[2]}"""
 
 
 
