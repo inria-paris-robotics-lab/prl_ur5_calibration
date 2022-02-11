@@ -19,13 +19,15 @@ def visp_meas_filter(n, tracker_topic):
     --------
         success (bool): True if the average was successful, False otherwise.
         pose (Pose): the last measure of the n consecutives.
+        stamp (Time): Timestamp of the last measure.
     """
     pose = None
     for i in range(n):
         status = rospy.wait_for_message(tracker_topic + "/status", Int8)
         if(status.data != 3): # Not tracking
-            return False, None
+            return False, None, None
         if i == n-1:
             transf_marker = rospy.wait_for_message(tracker_topic + "/object_position", PoseStamped)
             pose = transf_marker.pose
-    return True, pose
+            stamp = transf_marker.header.stamp
+    return True, pose, stamp
