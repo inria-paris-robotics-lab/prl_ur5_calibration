@@ -15,7 +15,7 @@ class CameraCalibration:
 
     def get_marker(self):
         while not rospy.is_shutdown():
-            success, pose = visp_meas_filter(self.sample_nb, self.tracker_node)
+            success, pose, _ = visp_meas_filter(self.sample_nb, self.tracker_node)
             if success:
                 return pose
             rospy.logwarn("Tracking not stable enough, retrying...")

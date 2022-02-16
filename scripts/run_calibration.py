@@ -11,7 +11,6 @@ import tf
 from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
-from prl_pinocchio.tools.utils import compare_poses, quaternion_to_euler
 import pinocchio as pin
 import numpy as np
 
@@ -172,12 +171,12 @@ class Calibration:
         rospy.logwarn("\narm_pose:" + self.str_pretty_pose(standMshoulder) + "\ncamera_pose:" + self.str_pretty_pose(eMb))
 
     def str_pretty_pose(self, se3):
-        xyzquat = pin.SE3ToXYZQUAT(se3)
-        euler = quaternion_to_euler(list(xyzquat[3:]))
+        trans = se3.translation
+        euler = pin.rpy.matrixToRpy(se3.rotation)
         return F"""
-        x: {xyzquat[0]}
-        y: {xyzquat[1]}
-        z: {xyzquat[2]}
+        x: {trans[0]}
+        y: {trans[1]}
+        z: {trans[2]}
         roll: {euler[0]}
         pitch: {euler[1]}
         yaw: {euler[2]}"""
@@ -185,7 +184,7 @@ class Calibration:
 
 
 if __name__ == "__main__":
-    rospy.init_node("calibration")
+    rospy.init_node("run_calibration", anonymous=True)
 
     # Read calibration poses
     poses_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/poses_calibration.p"
