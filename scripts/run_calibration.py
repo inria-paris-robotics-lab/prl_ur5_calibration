@@ -11,8 +11,10 @@ import tf
 from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
+from prl_pinocchio.tools.utils import euler_to_quaternion
 import pinocchio as pin
 import numpy as np
+import yaml
 
 def transform_to_se3(trans):
     return pin.XYZQUATToSE3([trans.translation.x, trans.translation.y, trans.translation.z,
@@ -68,10 +70,13 @@ class Calibration:
             return False
         return True
 
-    def get_measures(self, poses, logfile, recover=False):
+    def get_measures(self, marker_pose, poses, logfile, recover=False):
         # self.set_gripper("open")
         meas_log = []
         poses = deepcopy(poses)
+
+        # Exact marker pose in world frame
+        wMo_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
 
         # Recover measure to not re-do it
         recover_cnt = 0
@@ -124,8 +129,10 @@ class Calibration:
             cMo = transform_to_se3(camera_object)
             wMo = wMs * sMe * eMc * cMo
 
-            trans_err_vect = wMo.translation
-            rot_err_vect = pin.log3(wMo.rotation)
+            oMo_err = wMo_exact.inverse() * wMo
+
+            trans_err_vect = oMo_err.translation
+            rot_err_vect = pin.log3(oMo_err.rotation)
             trans_err = np.linalg.norm(trans_err_vect)
             rot_err = np.linalg.norm(rot_err_vect)
 
@@ -142,7 +149,7 @@ class Calibration:
         with open(logfile, "wb") as f:
             pickle.dump(meas_log, f)
 
-    def compute_calibration(self, logfile):
+    def compute_calibration(self, marker_pose, logfile):
         camera_object_list = []
         world_effector_list = []
 
@@ -160,7 +167,7 @@ class Calibration:
         cMb = transform_to_se3(self._getTransforms("/left_camera_color_optical_frame", "/left_camera_bottom_screw_frame", rospy.Time(0)) )
         eMb = eMc * cMb
 
-        wMo_exact = pin.XYZQUATToSE3([0,0,0.005, 0,0,0,1])
+        wMo_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
         shoulderMo_meas = transform_to_se3(calibration.world_object)
 
         standMw = transform_to_se3(self._getTransforms("/stand_link", "/prl_ur5_base", rospy.Time(0)))
@@ -186,14 +193,24 @@ class Calibration:
 if __name__ == "__main__":
     rospy.init_node("run_calibration", anonymous=True)
 
+    abs_path = rospkg.RosPack().get_path("prl_ur5_calibration") + "/"
+
+    # Read configuration file
+    config_filepath = abs_path + rospy.get_param("~config_file")
+    cfg_file = open(config_filepath, "r")
+    cfg = yaml.safe_load(cfg_file)
+    cfg_file.close()
+
     # Read calibration poses
-    poses_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/poses_calibration.p"
+    poses_filepath = abs_path + cfg["output_paths"]["final"]
     poses_file = open(poses_filepath, "rb")
     poses = pickle.load(poses_file)
     poses_file.close()
 
+    marker_pose = cfg["marker_pose"]
+
     # Prepare pickle log file for measures
-    measures_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/measures.p"
+    measures_filepath = abs_path + cfg["output_paths"]["measures"]
 
     # Parameters
     recover = rospy.get_param("~recover") # Recover measures from a previous run if possible
@@ -202,5 +219,5 @@ if __name__ == "__main__":
     # Run calibration
     calibration = Calibration()
     if not compute_only:
-        calibration.get_measures(poses, measures_filepath, recover)
-    calibration.compute_calibration(measures_filepath)
+        calibration.get_measures(marker_pose, poses, measures_filepath, recover)
+    calibration.compute_calibration(marker_pose, measures_filepath)

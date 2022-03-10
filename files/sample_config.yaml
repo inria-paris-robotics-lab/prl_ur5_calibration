@@ -17,4 +17,5 @@ output_paths:
   all: files/poses_calibration.p
   reachable: files/poses_reachable.p
   final: files/poses_sample.p
+  measures: files/measures.p
 n_final_poses: 20 # Number of poses to keep for calibration
