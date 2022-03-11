@@ -11,7 +11,7 @@ generation: # Parameter to generate candidate pose
     - np.pi/2
     - -np.pi/2
 marker_pose: # April tag pose in world frame
-  xyz: [0, 0, 0.005] # position
+  xyz: [-0.495, 0, 0.008] # position
   rpy: [0, 0, 0] # orientation
 output_paths:
   all: files/poses_calibration.p

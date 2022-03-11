@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import os
 import rospy
-from std_msgs.msg import Int8
-from geometry_msgs.msg import PoseStamped
 from tf import transformations
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 from prl_ur5_calibration.utils import visp_meas_filter
 
@@ -47,22 +46,28 @@ class CameraCalibration:
         os.system(F"rosnode kill {self.tracker_node}")
 
 def make_msg(sample_nb, camera_name, trans, rot):
+    euler = euler_from_quaternion(rot)
     return F"""\n
 ############################################
 # Generated from calibrate_external_camera #
 ############################################
 # For camera : {camera_name}
-# (Averaged on {sample_nb} samples)
+# (Filtered on {sample_nb} samples)
 
   position:
-    x: {trans[0]}
-    y: {trans[1]}
-    z: {trans[2]}
+    x: {trans[0]:.6f}
+    y: {trans[1]:.6f}
+    z: {trans[2]:.6f}
   orientation:
-    x: {rot[0]}
-    y: {rot[1]}
-    z: {rot[2]}
-    w: {rot[3]}
+    x: {rot[0]:.6f}
+    y: {rot[1]:.6f}
+    z: {rot[2]:.6f}
+    w: {rot[3]:.6f}
+
+    (euler orientation:
+    r: {euler[0]:.3f} rad\t({euler[0]*180/3.1415926:.1f} deg)
+    p: {euler[1]:.3f} rad\t({euler[1]*180/3.1415926:.1f} deg)
+    y: {euler[2]:.3f} rad\t({euler[2]*180/3.1415926:.1f} deg))
 """
 
 if __name__ == "__main__":
@@ -72,7 +77,12 @@ if __name__ == "__main__":
     tracker_node = rospy.get_param("~tracker_node") # Get the name of visp_auto_tracker node
     sample_nb = rospy.get_param("~sample_nb") # Number of samples for averaging the pose
 
+    run_loop = rospy.get_param("~run_loop", False) # Stop after one measurment or not
+
     # Run calibration
     calibration = CameraCalibration(sample_nb, camera_name, tracker_node)
-    calibration.run()
+    while not rospy.is_shutdown():
+       calibration.run()
+       if not run_loop:
+           break
     calibration.done()

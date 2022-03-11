@@ -2,8 +2,9 @@
 <!-- Calibrate the extrinsics of a camera mounted externally to the robot -->
 <launch>
     <arg name="camera_name" doc="name of the camera"/>
-    <arg name="camera_topic" value="/$(arg camera_name)/color" doc="Topic of the camera"/>
-    <arg name="sample_nb" value="10" doc="Number of sample for averaging the position"/>
+    <arg name="camera_topic" default="/$(arg camera_name)/color" doc="Topic of the camera"/>
+    <arg name="sample_nb" default="10" doc="Number of sample for averaging the position"/>
+    <arg name="run_loop" default="False" doc="Exit after first measure or not"/>
 
 
     <!-- Name of the visp_auto_tracker node -->
@@ -23,5 +24,6 @@
         <param name="camera_name" value="$(arg camera_name)"/>
         <param name="tracker_node" value="$(arg tracker_node)"/>
         <param name="sample_nb" value="$(arg sample_nb)"/>
+        <param name="run_loop" value="$(arg run_loop)"/>
     </node>
 </launch>
