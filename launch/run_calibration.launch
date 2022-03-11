@@ -2,6 +2,8 @@
 <launch>
     <arg name="recover" default="False" doc="Recover measures from a previous run if possible"/>
     <arg name="compute_only" default="False" doc="Only read from the existing measure file and do the computation"/>
+    <arg name="config_file" default="files/sample_config.yaml" doc=""/>
+
 
     <!-- hand2eye calibration service -->
     <node name="visp_hand2eye_calibration_calibrator" pkg="visp_hand2eye_calibration" type="visp_hand2eye_calibration_calibrator"/>
@@ -17,6 +19,7 @@
 
     <!-- Run calibration node -->
     <node pkg="prl_ur5_calibration" type="run_calibration.py" name="$(anon run_calibration.py)">
+        <param name="config_file" value="$(arg config_file)"/>
         <param name="recover" value="$(arg recover)"/>
         <param name="compute_only" value="$(arg compute_only)"/>
     </node>

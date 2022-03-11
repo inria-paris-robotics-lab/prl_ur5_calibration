@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- TODO: Populate doc -->
+    <arg name="config_file" default="files/sample_config.yaml" doc=""/>
+    <arg name="generate_samples" default="True" doc="Generate or not the initial sampling of space."/>
+    <arg name="filter_reachable" default="True" doc="Filter the initial sampling : test is each pose can be achieved by the robot"/>
+    <arg name="filter_decimate" default="True" doc="Filter the reachable poses : keep only the n poses that are the farther away from each other"/>
+
+    <!-- Argument to enable plotting -->
+    <arg name="plot" default="True" doc="Enable plotting the poses"/>
+    <arg name="plot_samples" default="True" doc=""/>
+    <arg name="plot_reachables" default="True" doc=""/>
+    <arg name="plot_finals" default="True" doc=""/>
+
+    <!-- Run calibration node -->
+    <node pkg="prl_ur5_calibration" type="generate_poses.py" name="generate_poses" output="screen">
+        <param name="config_file"       value="$(arg config_file)"/>
+        <param name="generate_samples"  value="$(arg generate_samples)"/>
+        <param name="filter_reachable"  value="$(arg filter_reachable)"/>
+        <param name="filter_decimate"   value="$(arg filter_decimate)"/>
+        <param name="plot"              value="$(arg plot)"/>
+        <param name="plot_samples"      value="$(arg plot_samples)"/>
+        <param name="plot_reachables"   value="$(arg plot_reachables)"/>
+        <param name="plot_finals"       value="$(arg plot_finals)"/>
+    </node>
+</launch>

@@ -11,9 +11,10 @@ import tf
 from tqdm import tqdm
 
 from prl_ur5_calibration.utils import visp_meas_filter
-from prl_pinocchio.tools.utils import compare_poses, quaternion_to_euler
+from prl_pinocchio.tools.utils import euler_to_quaternion
 import pinocchio as pin
 import numpy as np
+import yaml
 
 def transform_to_se3(trans):
     return pin.XYZQUATToSE3([trans.translation.x, trans.translation.y, trans.translation.z,
@@ -42,20 +43,20 @@ class Calibration:
         rospy.wait_for_service('compute_effector_camera_quick')
         self.srv_calibrate = rospy.ServiceProxy('compute_effector_camera_quick', compute_effector_camera_quick)
 
-    def _getTransforms(self, from_f, to_f):
-        latest_t = self.tf_listener.getLatestCommonTime(from_f, to_f)
-        (trans, rot) = self.tf_listener.lookupTransform(from_f, to_f, latest_t)
+    def _getTransforms(self, from_f, to_f, timestamp):
+        self.tf_listener.waitForTransform(from_f, to_f, timestamp, rospy.Duration(4.0))
+        (trans, rot) = self.tf_listener.lookupTransform(from_f, to_f, timestamp)
 
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
     def _get_marker(self):
         for _ in range(50): # Tries
-            success, pose = visp_meas_filter(30, "/visp_auto_tracker")
+            success, pose, stamp = visp_meas_filter(30, "/visp_auto_tracker")
             if success:
-                return pose
+                return pose, stamp
             rospy.sleep(0.2)
         rospy.logwarn("Failed to get marker")
-        return None
+        return None, None
 
     def _go_at_pose(self, pose):
         assert not rospy.is_shutdown()
@@ -69,10 +70,13 @@ class Calibration:
             return False
         return True
 
-    def get_measures(self, poses, logfile, recover=False):
+    def get_measures(self, marker_pose, poses, logfile, recover=False):
         # self.set_gripper("open")
         meas_log = []
         poses = deepcopy(poses)
+
+        # Exact marker pose in world frame
+        wMo_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
 
         # Recover measure to not re-do it
         recover_cnt = 0
@@ -104,35 +108,31 @@ class Calibration:
             if not success:
                 continue
 
-            # Wait for the robot to be at the exact position
-            is_at_pose = False
-            rospy.logwarn("Wait for the robot to be exactly at the pose...")
-            while(not rospy.is_shutdown()):
-                rospy.sleep(1.2)
-                gripper_pose = self.robot.get_frame_pose(self.robot.get_gripper_link(self.robot.left_gripper_name))
-                is_at_pose = compare_poses(pose[0]+pose[1], gripper_pose, threshold=0.004)
-                if is_at_pose:
-                    rospy.logwarn("At pose")
-                    break
+            # Wait for the robot to be at pose
+            rospy.sleep(3.5)
 
             # Get the marker position
-            camera_object = self._get_marker()
+            camera_object, stamp = self._get_marker()
             if not camera_object:
                 continue
             camera_object = Transform(translation = camera_object.position, rotation = camera_object.orientation)
 
             # Get the effector position
-            world_effector = self._getTransforms("/prl_ur5_base", "/left_tool")
+            shoulder_effector = self._getTransforms("/left_base_link", "/left_tool", stamp)
 
             # Check rough position estimation
-            effector_camera = self._getTransforms("/left_tool", "/left_camera_color_optical_frame")
-            wMe = transform_to_se3(world_effector)
+            world_shoulder = self._getTransforms("/prl_ur5_base", "/left_base_link", stamp)
+            effector_camera = self._getTransforms("/left_tool", "/left_camera_color_optical_frame", stamp)
+            wMs = transform_to_se3(world_shoulder)
+            sMe = transform_to_se3(shoulder_effector)
             eMc = transform_to_se3(effector_camera)
             cMo = transform_to_se3(camera_object)
-            wMo = wMe * eMc * cMo
+            wMo = wMs * sMe * eMc * cMo
 
-            trans_err_vect = wMo.translation
-            rot_err_vect = pin.log3(wMo.rotation)
+            oMo_err = wMo_exact.inverse() * wMo
+
+            trans_err_vect = oMo_err.translation
+            rot_err_vect = pin.log3(oMo_err.rotation)
             trans_err = np.linalg.norm(trans_err_vect)
             rot_err = np.linalg.norm(rot_err_vect)
 
@@ -143,13 +143,13 @@ class Calibration:
                 continue
 
             # Save values
-            meas_log[-1] = (pose, camera_object, world_effector)
+            meas_log[-1] = (pose, camera_object, shoulder_effector)
 
         # Save all the measures
         with open(logfile, "wb") as f:
             pickle.dump(meas_log, f)
 
-    def compute_calibration(self, logfile):
+    def compute_calibration(self, marker_pose, logfile):
         camera_object_list = []
         world_effector_list = []
 
@@ -164,27 +164,26 @@ class Calibration:
 
         # Convert results in same frames as configuration file
         eMc = transform_to_se3(calibration.effector_camera)
-        bsMe = transform_to_se3(self._getTransforms("/left_camera_bottom_screw_frame", "/left_tool"))
-        bsMc = bsMe * eMc
+        cMb = transform_to_se3(self._getTransforms("/left_camera_color_optical_frame", "/left_camera_bottom_screw_frame", rospy.Time(0)) )
+        eMb = eMc * cMb
 
-        wMo_exact = pin.XYZQUATToSE3([0,0,0.005, 0,0,0,1])
-        wMo_meas = transform_to_se3(calibration.world_object)
-        w_oldMw_new = wMo_meas * wMo_exact.inverse()
+        wMo_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
+        shoulderMo_meas = transform_to_se3(calibration.world_object)
 
-        wMsl = transform_to_se3(self._getTransforms("/prl_ur5_base", "/stand_link"))
-        slMbl = transform_to_se3(self._getTransforms("/stand_link", "/left_base_link"))
-        slMbl_new = wMsl.inverse() * w_oldMw_new * wMsl * slMbl
+        standMw = transform_to_se3(self._getTransforms("/stand_link", "/prl_ur5_base", rospy.Time(0)))
+
+        standMshoulder = standMw * wMo_exact * shoulderMo_meas.inverse()
 
         # Print the results
-        rospy.logwarn("\narm_pose:" + self.str_pretty_pose(slMbl_new) + "\ncamera_pose:" + self.str_pretty_pose(bsMc))
+        rospy.logwarn("\narm_pose:" + self.str_pretty_pose(standMshoulder) + "\ncamera_pose:" + self.str_pretty_pose(eMb))
 
     def str_pretty_pose(self, se3):
-        xyzquat = pin.SE3ToXYZQUAT(se3)
-        euler = quaternion_to_euler(list(xyzquat[3:]))
+        trans = se3.translation
+        euler = pin.rpy.matrixToRpy(se3.rotation)
         return F"""
-        x: {xyzquat[0]}
-        y: {xyzquat[1]}
-        z: {xyzquat[2]}
+        x: {trans[0]}
+        y: {trans[1]}
+        z: {trans[2]}
         roll: {euler[0]}
         pitch: {euler[1]}
         yaw: {euler[2]}"""
@@ -192,16 +191,26 @@ class Calibration:
 
 
 if __name__ == "__main__":
-    rospy.init_node("calibration")
+    rospy.init_node("run_calibration", anonymous=True)
+
+    abs_path = rospkg.RosPack().get_path("prl_ur5_calibration") + "/"
+
+    # Read configuration file
+    config_filepath = abs_path + rospy.get_param("~config_file")
+    cfg_file = open(config_filepath, "r")
+    cfg = yaml.safe_load(cfg_file)
+    cfg_file.close()
 
     # Read calibration poses
-    poses_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/poses_calibration.p"
+    poses_filepath = abs_path + cfg["output_paths"]["final"]
     poses_file = open(poses_filepath, "rb")
     poses = pickle.load(poses_file)
     poses_file.close()
 
+    marker_pose = cfg["marker_pose"]
+
     # Prepare pickle log file for measures
-    measures_filepath = rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/measures.p"
+    measures_filepath = abs_path + cfg["output_paths"]["measures"]
 
     # Parameters
     recover = rospy.get_param("~recover") # Recover measures from a previous run if possible
@@ -210,5 +219,5 @@ if __name__ == "__main__":
     # Run calibration
     calibration = Calibration()
     if not compute_only:
-        calibration.get_measures(poses, measures_filepath, recover)
-    calibration.compute_calibration(measures_filepath)
+        calibration.get_measures(marker_pose, poses, measures_filepath, recover)
+    calibration.compute_calibration(marker_pose, measures_filepath)
