@@ -8,6 +8,8 @@ This package provides several tools for :
 
 The result of the calibrations must then be placed in [prl_ur5_robot_configuration](../prl_ur5_robot_configuration).
 
+The image / blueprint of the calibration marker is [files/models/marker.svg](files/models/marker.svg)
+
 ## Dependencies
 * tqdm
 * ros-noetic-visp-hand2eye-calibration
