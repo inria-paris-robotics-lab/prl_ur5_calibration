@@ -1,0 +1,21 @@
+generation: # Parameter to generate candidate pose
+  distance: 0.45 # Distance to impose between the camera and the calibration marker
+  angles:        # Angles to take on x, y and z axis in order to sample candidate pose, in a grid manner.
+    - 0
+    - np.pi/6
+    - -np.pi/6
+    - np.pi/4
+    - -np.pi/4
+    - np.pi/3
+    - -np.pi/3
+    - np.pi/2
+    - -np.pi/2
+marker_pose: # Aruco calibration tag pose in world frame
+  xyz: [-0.495, 0, 0.008] # position
+  rpy: [0, 0, 0]          # orientation
+output_paths:
+  all: files/poses_calibration.p
+  reachable: files/poses_reachable.p
+  final: files/poses_sample.p
+  measures: files/measures.p
+n_final_poses: 20 # Number of poses to keep for the final calibration

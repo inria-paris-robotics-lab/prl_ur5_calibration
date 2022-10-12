@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <!-- TODO: Populate doc -->
-    <arg name="config_file" default="files/sample_config.yaml" doc=""/>
+    <arg name="config_file" default="files/configuration.yaml" doc=""/>
     <arg name="generate_samples" default="True" doc="Generate or not the initial sampling of space."/>
     <arg name="filter_reachable" default="True" doc="Filter the initial sampling : test is each pose can be achieved by the robot"/>
     <arg name="filter_decimate" default="True" doc="Filter the reachable poses : keep only the n poses that are the farther away from each other"/>

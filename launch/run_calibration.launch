@@ -2,7 +2,7 @@
 <launch>
     <arg name="recover" default="False" doc="Recover measures from a previous run if possible"/>
     <arg name="compute_only" default="False" doc="Only read from the existing measure file and do the computation"/>
-    <arg name="config_file" default="files/sample_config.yaml" doc=""/>
+    <arg name="config_file" default="files/configuration.yaml" doc=""/>
 
 
     <!-- hand2eye calibration service -->
