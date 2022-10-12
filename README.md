@@ -6,6 +6,8 @@ This package provides several tools for :
 1. Measuring the position of a camera wrt to a aruco marker and thus calibrating fixed camera, a.k.a **external camera calibration**
 2. Calibrating the robot placement wrt to the table and the embedded camera placement wrt to the gripper, a.k.a **robot calibration**
 
+The result of the calibrations must then be placed in [prl_ur5_robot_configuration](../prl_ur5_robot_configuration).
+
 ## Dependencies
 * tqdm
 * ros-noetic-visp-hand2eye-calibration
