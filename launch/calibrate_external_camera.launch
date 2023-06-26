@@ -20,7 +20,7 @@
     </node>
 
     <!-- Run calibration node -->
-    <node pkg="prl_ur5_calibration" type="calibrate_external_camera.py" name="$(anon calibrate_external_camera.py)">
+    <node pkg="prl_ur5_calibration" type="calibrate_external_camera.py" name="$(anon calibrate_external_camera.py)" output="screen">
         <param name="camera_name" value="$(arg camera_name)"/>
         <param name="tracker_node" value="$(arg tracker_node)"/>
         <param name="sample_nb" value="$(arg sample_nb)"/>

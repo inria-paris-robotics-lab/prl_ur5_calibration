@@ -3,6 +3,7 @@ import os
 import rospy
 from tf import transformations
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+import numpy as np
 
 from prl_ur5_calibration.utils import visp_meas_filter
 
@@ -31,14 +32,26 @@ class CameraCalibration:
         trans_mat = transformations.translation_matrix(trans)
 
         concat_mat = transformations.concatenate_matrices(trans_mat, quat_mat)
-        res_mat = transformations.inverse_matrix(concat_mat)
 
-        res_trans = transformations.translation_from_matrix(res_mat)
-        res_quat = transformations.quaternion_from_matrix(res_mat)
+        res_mat = transformations.inverse_matrix(concat_mat)
+        marker_T_camera = res_mat
+        marker_initial_pos = [-0.45, 0.0, 0.008]
+        marker_initial_quat = [0.0, 0.0, 0.0, 1.0]
+
+        init_quat_mat = transformations.quaternion_matrix(marker_initial_quat)
+        init_trans_mat = transformations.translation_matrix(marker_initial_pos)
+
+        world_T_marker = transformations.concatenate_matrices(init_trans_mat, init_quat_mat)
+
+        world_T_camera = np.matmul(world_T_marker, marker_T_camera)
+
+        res_trans = transformations.translation_from_matrix(world_T_camera)
+        res_quat = transformations.quaternion_from_matrix(world_T_camera)
 
         # User-friendly print the result
         msg = make_msg(self.sample_nb, self.camera_name, res_trans, res_quat)
         rospy.logwarn(msg)
+        print(msg)
 
     def done(self):
         # Kill the visp_auto_tracker node as it's not needed anymore
@@ -70,7 +83,8 @@ def make_msg(sample_nb, camera_name, trans, rot):
 """
 
 if __name__ == "__main__":
-    rospy.init_node("calibrate_external_camera", anonymous=True)
+    rospy.init_node("calibrate_external_camera", anonymous=True, log_level=rospy.INFO)
+    rospy.loginfo("WHATEVER")
 
     camera_name = rospy.get_param("~camera_name") # Name of the camera for print purposes
     tracker_node = rospy.get_param("~tracker_node") # Get the name of visp_auto_tracker node
@@ -85,3 +99,4 @@ if __name__ == "__main__":
        if not run_loop:
            break
     calibration.done()
+

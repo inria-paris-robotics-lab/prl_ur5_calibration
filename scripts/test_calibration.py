@@ -18,18 +18,21 @@ robot.left_arm.set_planner_id('RRTstar')
 robot.left_arm.set_end_effector_link("left_gripper_grasp_frame")
 
 
-cube_height = 0.0455
+cube_height = 0.15
+offset = 0.015
+cube_height += offset
+
 pose_list = [
-    make_pose([ 0   ,  0    ,cube_height], (pi, 0, 0)),
-    make_pose([ 0   ,  0    ,cube_height], (pi, 0, pi/2)),
-    make_pose([ 0   ,  0.27 ,cube_height], (pi, 0, 0)),
-    make_pose([ 0   ,  0.27 ,cube_height], (pi, 0, pi/2)),
-    make_pose([-0.45,  0.27 ,cube_height], (pi, 0, 0)),
-    make_pose([-0.45,  0.27 ,cube_height], (pi, 0, pi/2)),
-    make_pose([-0.45,  0    ,cube_height], (pi, 0, 0)),
-    make_pose([-0.45,  0    ,cube_height], (pi, 0, pi/2)),
-    make_pose([-0.45, -0.27 ,cube_height], (pi, 0, 0)),
-    make_pose([-0.45, -0.27 ,cube_height], (pi, 0, pi/2)),
+    make_pose([ -0.695 ,  0    ,cube_height], (pi, 0, 0)),
+    make_pose([ -0.695 ,  0    ,cube_height], (pi, 0, pi/2)),
+    make_pose([ -0.695 ,  -0.175 ,cube_height], (pi, 0, 0)),
+    make_pose([ -0.695 ,  -0.175 ,cube_height], (pi, 0, pi/2)),
+    make_pose([-0.295,  -0.175 ,cube_height], (pi, 0, 0)),
+    make_pose([-0.295,  -0.175 ,cube_height], (pi, 0, pi/2)),
+    make_pose([-0.295,  0    ,cube_height], (pi, 0, 0)),
+    make_pose([-0.295,  0    ,cube_height], (pi, 0, pi/2)),
+    make_pose([-0.295, 0.175 ,cube_height], (pi, 0, 0)),
+    make_pose([-0.295, 0.175 ,cube_height], (pi, 0, pi/2)),
 ]
 
 for pose in pose_list:
