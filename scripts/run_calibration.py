@@ -10,7 +10,7 @@ from visp_hand2eye_calibration.msg import TransformArray
 import tf
 from tqdm import tqdm
 
-from prl_ur5_calibration.utils import visp_meas_filter, transform_to_se3
+from prl_ur5_calibration.utils import compute_barycenter, visp_meas_filter, transform_to_se3
 from prl_pinocchio.tools.utils import euler_to_quaternion
 import pinocchio as pin
 import numpy as np
@@ -108,21 +108,21 @@ class Calibration:
             rospy.sleep(3.5)
 
             # Get the marker position
-            camera_object, stamp = self._get_marker()
-            if not camera_object:
+            optical_object, stamp = self._get_marker()
+            if not optical_object:
                 continue
-            camera_object = Transform(translation = camera_object.position, rotation = camera_object.orientation)
+            optical_object = Transform(translation = optical_object.position, rotation = optical_object.orientation)
 
             # Get the effector position
             shoulder_effector = self._getTransforms("/left_base_link", "/left_tool", stamp)
 
             # Check rough position estimation
             world_shoulder = self._getTransforms("/prl_ur5_base", "/left_base_link", stamp)
-            effector_camera = self._getTransforms("/left_tool", "/left_camera_color_optical_frame", stamp)
+            effector_optical = self._getTransforms("/left_tool", "/left_camera_color_optical_frame", stamp)
             worldMshoulder = transform_to_se3(world_shoulder)
             shoulderMeffector = transform_to_se3(shoulder_effector)
-            effectorMoptical = transform_to_se3(effector_camera)
-            opticalMobject = transform_to_se3(camera_object)
+            effectorMoptical = transform_to_se3(effector_optical)
+            opticalMobject = transform_to_se3(optical_object)
             worldMobject = worldMshoulder * shoulderMeffector * effectorMoptical * opticalMobject
 
             objectMobject_err = worldMobject_exact.inverse() * worldMobject
@@ -139,24 +139,24 @@ class Calibration:
                 continue
 
             # Save values
-            meas_log[-1] = (pose, camera_object, shoulder_effector)
+            meas_log[-1] = (pose, optical_object, shoulder_effector)
 
         # Save all the measures
         with open(logfile, "wb") as f:
             pickle.dump(meas_log, f)
 
     def compute_calibration(self, marker_pose, logfile):
-        camera_object_list = []
-        world_effector_list = []
+        optical_object_list = []
+        shoulder_effector_list = []
 
         log_data = pickle.load(open(logfile, "rb"))
         for meas in log_data:
             if meas[1] is not None:
-                camera_object_list.append(meas[1])
-                world_effector_list.append(meas[2])
+                optical_object_list.append(meas[1])
+                shoulder_effector_list.append(meas[2])
 
         # Compute the calibration
-        calibration = self.srv_calibrate(TransformArray(transforms=camera_object_list), TransformArray(transforms=world_effector_list))
+        calibration = self.srv_calibrate(TransformArray(transforms=optical_object_list), TransformArray(transforms=shoulder_effector_list))
 
         # Convert results in same frames as configuration file
         effectorMoptical = transform_to_se3(calibration.effector_camera)
@@ -164,14 +164,17 @@ class Calibration:
         effectorMscrews = effectorMoptical * opticalMscrews
 
         worldMobject_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
-        shoulderMobject_meas = transform_to_se3(calibration.world_object)
+
+        # Compute the barycenter of all the measurments to estimate the arm position in the world frame
+        shoulderMobject_list = [ transform_to_se3(shoulder_effector) * effectorMoptical * transform_to_se3(optical_object) for shoulder_effector, optical_object in zip(shoulder_effector_list, optical_object_list)]
+        shoulderMobject_meas = compute_barycenter(shoulderMobject_list)
 
         standMworld = transform_to_se3(self._getTransforms("/stand_link", "/prl_ur5_base", rospy.Time(0)))
 
         standMshoulder = standMworld * worldMobject_exact * shoulderMobject_meas.inverse()
 
         # Print the results
-        rospy.logwarn("\narm_pose:" + self.str_pretty_pose(standMshoulder) + "\ncamera_pose:" + self.str_pretty_pose(effectorMscrews))
+        rospy.loginfo("\narm_pose:" + self.str_pretty_pose(standMshoulder) + "\ncamera_pose:" + self.str_pretty_pose(effectorMscrews))
 
     def str_pretty_pose(self, se3):
         trans = se3.translation
@@ -187,7 +190,7 @@ class Calibration:
 
 
 if __name__ == "__main__":
-    rospy.init_node("run_calibration", anonymous=True)
+    rospy.init_node("run_calibration", anonymous=True, log_level=rospy.INFO)
 
     abs_path = rospkg.RosPack().get_path("prl_ur5_calibration") + "/"
 
