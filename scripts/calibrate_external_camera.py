@@ -49,16 +49,15 @@ class CameraCalibration:
         res_quat = transformations.quaternion_from_matrix(world_T_camera)
 
         # User-friendly print the result
-        msg = make_msg(self.sample_nb, self.camera_name, res_trans, res_quat)
-        rospy.logwarn(msg)
-        print(msg)
+        pretty_str = make_pretty_str(self.sample_nb, self.camera_name, res_trans, res_quat)
+        rospy.loginfo(pretty_str)
 
     def done(self):
         # Kill the visp_auto_tracker node as it's not needed anymore
         rospy.loginfo(F"Done calibrating > Killing {self.tracker_node} node")
         os.system(F"rosnode kill {self.tracker_node}")
 
-def make_msg(sample_nb, camera_name, trans, rot):
+def make_pretty_str(sample_nb, camera_name, trans, rot):
     euler = euler_from_quaternion(rot)
     return F"""\n
 ############################################
@@ -84,7 +83,6 @@ def make_msg(sample_nb, camera_name, trans, rot):
 
 if __name__ == "__main__":
     rospy.init_node("calibrate_external_camera", anonymous=True, log_level=rospy.INFO)
-    rospy.loginfo("WHATEVER")
 
     camera_name = rospy.get_param("~camera_name") # Name of the camera for print purposes
     tracker_node = rospy.get_param("~tracker_node") # Get the name of visp_auto_tracker node
