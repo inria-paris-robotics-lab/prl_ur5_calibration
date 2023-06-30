@@ -61,8 +61,8 @@ class Calibration:
     def _go_at_pose(self, pose):
         assert not rospy.is_shutdown()
         try:
-            path = self.planner.make_gripper_approach(self.robot.left_gripper_name, *pose, approach_distance = 0)
-            # self.planner.pp(path.id)
+            path = self.planner.make_gripper_approach(self.robot.left_gripper_name, pose, approach_distance = 0)
+            self.planner.pp(path.id)
             self.commander_left_arm.execute_path(path)
         except Exception as e:
             rospy.logwarn("Failed to plan path")
