@@ -4,6 +4,40 @@ import pinocchio as pin
 from std_msgs.msg import Int8
 from geometry_msgs.msg import Quaternion, PoseStamped, Pose, Point, Quaternion
 
+def transform_to_se3(trans):
+    return pin.XYZQUATToSE3([trans.translation.x, trans.translation.y, trans.translation.z,
+                             trans.rotation.x, trans.rotation.y, trans.rotation.z, trans.rotation.w])
+
+def compute_barycenter(pose_list, fp_iter=100, callback=None):
+    """
+    bi invariant barycenter
+    """
+    guess = pose_list[0]
+    if callback is not None:
+        callback(guess)
+
+    for _ in range(fp_iter):
+        guess =  pin.exp(
+            pin.Motion(
+                np.stack([pin.log(p * guess.inverse()).np for p in pose_list], axis=0).mean(axis=0)
+            )
+        ) * guess
+        if callback is not None:
+            callback(guess)
+    return guess
+
+def compute_covariance(barycenter, pose_list):
+    N = len(pose_list)
+    logs_l_riem = np.stack([
+        np.concatenate([
+            pin.log3((barycenter.inverse() * p).rotation),
+            (barycenter.inverse() * p).translation
+        ], axis=0)
+        for p in pose_list
+    ], axis=0)
+    V_l_riem = np.einsum('ib,ic->bc', logs_l_riem, logs_l_riem) / (N-1)
+    return V_l_riem
+
 def visp_meas_filter(n, tracker_topic):
     """
     Wait for n consecutive measures in Tracking Mode and return the last one.
