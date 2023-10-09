@@ -14,7 +14,7 @@ The image / blueprint of the calibration marker is [files/models/marker.svg](fil
 * tqdm
 * ros-noetic-visp-hand2eye-calibration
 * for robot calibration :
-    * [prl_hpp_tsid](https://github.com/inria-paris-robotic-lab/prl_hpp_tsid)
+    * [prl_hpp_tsid](https://github.com/inria-paris-robotics-lab/prl_hpp_tsid)
 
 # External camera calibration
 ## How to use
