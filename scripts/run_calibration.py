@@ -46,29 +46,26 @@ class Calibration:
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
     def _get_marker(self):
-        while not input_accept(f"Measure marker pose ?"):
-            pass
-        success, pose, stamp = visp_meas_filter(30, "/visp_auto_tracker")
-        if success:
-            return pose, stamp
+        if input_accept(f"Measure marker pose ?"):
+            success, pose, stamp = visp_meas_filter(30, "/visp_auto_tracker")
+            if success:
+                return pose, stamp
         rospy.logwarn("Failed to get marker")
         return None, None
 
     def _go_at_pose(self, pose):
-        assert not rospy.is_shutdown()
-        try:
-            path = None
-            while True:
+        while not rospy.is_shutdown():
+            try:
                 path = self.planner.make_gripper_approach(self.robot.left_gripper_name, pose, approach_distance = 0)
                 if(input_accept(f"Plan found (ID: {path.id}) ! Play ?")):
                     break
-                else:
-                    print('Replanning...')
-            self.commander_left_arm.execute_path(path)
-        except Exception as e:
-            rospy.logwarn("Failed to plan path")
-            rospy.logwarn(e.args)
-            return False
+                print('Replanning...')
+            except Exception as e:
+                rospy.logwarn("Failed to plan path")
+                rospy.logwarn(e.args)
+                if(not input_accept(f"replan ?")):
+                    return False
+        self.commander_left_arm.execute_path(path)
         return True
 
     def get_measures(self, marker_pose, poses, logfile, recover=False):
@@ -144,7 +141,7 @@ class Calibration:
 
             rospy.logwarn(F"Marker pose:\n{worldMobject}")
             if(trans_err > 0.05 or rot_err > 0.2):
-                rospy.logerr(F"Marker measured far away from origin: point (n°{len(meas_log)-1}) kept anyway)\n"
+                rospy.logerr(F"Marker measured far away from expected pose: point (n°{len(meas_log)-1}) kept anyway)\n"
                             +F"(translation error {trans_err} (wrt 0.05), rotation error {rot_err} (wrt 0.2))")
 
             # Save values
