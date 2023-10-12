@@ -179,8 +179,23 @@ class Calibration:
 
         standMshoulder = standMworld * worldMobject_exact * shoulderMobject_meas.inverse()
 
+        # Compute precision of the calibration
+        worlMobject_list = [standMworld.inverse() * standMshoulder * shoulderMobject for shoulderMobject in shoulderMobject_list]
+        worldMobject_bary = compute_barycenter(worlMobject_list)
+        worldMobject_cov = compute_covariance(worldMobject_bary, worlMobject_list)
+        worldMobject_std_dev = np.sqrt(worldMobject_cov.diagonal())
+        object_pos_std = np.linalg.norm(worldMobject_std_dev[:3])
+        object_rot_std = np.linalg.norm(worldMobject_std_dev[3:])
+
         # Print the results
-        rospy.loginfo("\narm_pose:" + self.str_pretty_pose(standMshoulder) + "\ncamera_pose:" + self.str_pretty_pose(effectorMscrews))
+        rospy.loginfo(F"""
+arm_pose: {self.str_pretty_pose(standMshoulder)}
+camera_pose: {self.str_pretty_pose(effectorMscrews)}
+marker (wrt world) std deviation:
+position: {object_pos_std} m
+rotation: {object_rot_std} rad
+                      """)
+
 
     def str_pretty_pose(self, se3):
         trans = se3.translation
