@@ -4,6 +4,8 @@
     <arg name="compute_only" default="False" doc="Only read from the existing measure file and do the computation"/>
     <arg name="config_file" default="files/configuration.yaml" doc=""/>
 
+    <!-- Upload urdf/srdf for hpp -->
+    <include file="$(find prl_pinocchio)/launch/upload_ur5.launch"/>
 
     <!-- hand2eye calibration service -->
     <node name="visp_hand2eye_calibration_calibrator" pkg="visp_hand2eye_calibration" type="visp_hand2eye_calibration_calibrator"/>
@@ -18,7 +20,7 @@
     </node>
 
     <!-- Run calibration node -->
-    <node pkg="prl_ur5_calibration" type="run_calibration.py" name="$(anon run_calibration.py)">
+    <node pkg="prl_ur5_calibration" type="run_calibration.py" name="$(anon run_calibration.py)" output="screen">
         <param name="config_file" value="$(arg config_file)"/>
         <param name="recover" value="$(arg recover)"/>
         <param name="compute_only" value="$(arg compute_only)"/>
