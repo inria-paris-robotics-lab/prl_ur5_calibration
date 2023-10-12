@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<robot name="tag_fixture">
+  <link name="bounding_box">
+    <visual>
+      <!-- 7 mm of the collision box under the tag, 25 mm above => (32/2) - 7 mm = 9 mm  -->
+      <origin xyz="0 0 0.009" rpy="0 0 0"/>
+      <geometry>
+        <box size=".25 .25 .032"/>
+      </geometry>
+      <material name="transparent_red">
+        <color rgba="0.8 0.1 0.1 0.4"/>
+      </material>
+    </visual>
+
+    <collision name="box">
+      <origin xyz="0 0 0.009" rpy="0 0 0"/>
+      <geometry>
+        <box size=".25 .25 .032"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

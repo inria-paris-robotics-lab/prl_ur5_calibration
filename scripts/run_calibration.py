@@ -10,7 +10,7 @@ from visp_hand2eye_calibration.msg import TransformArray
 import tf
 from tqdm import tqdm
 
-from prl_ur5_calibration.utils import compute_barycenter, visp_meas_filter, transform_to_se3
+from prl_ur5_calibration.utils import input_accept, compute_barycenter, compute_covariance, visp_meas_filter, transform_to_se3
 from prl_pinocchio.tools.utils import euler_to_quaternion
 import pinocchio as pin
 import numpy as np
@@ -46,19 +46,24 @@ class Calibration:
         return Transform(translation=Vector3(*trans), rotation=Quaternion(*rot))
 
     def _get_marker(self):
-        for _ in range(50): # Tries
-            success, pose, stamp = visp_meas_filter(30, "/visp_auto_tracker")
-            if success:
-                return pose, stamp
-            rospy.sleep(0.2)
+        while not input_accept(f"Measure marker pose ?"):
+            pass
+        success, pose, stamp = visp_meas_filter(30, "/visp_auto_tracker")
+        if success:
+            return pose, stamp
         rospy.logwarn("Failed to get marker")
         return None, None
 
     def _go_at_pose(self, pose):
         assert not rospy.is_shutdown()
         try:
-            path = self.planner.make_gripper_approach(self.robot.left_gripper_name, pose, approach_distance = 0)
-            self.planner.pp(path.id)
+            path = None
+            while True:
+                path = self.planner.make_gripper_approach(self.robot.left_gripper_name, pose, approach_distance = 0)
+                if(input_accept(f"Plan found (ID: {path.id}) ! Play ?")):
+                    break
+                else:
+                    print('Replanning...')
             self.commander_left_arm.execute_path(path)
         except Exception as e:
             rospy.logwarn("Failed to plan path")
@@ -73,6 +78,11 @@ class Calibration:
 
         # Exact marker pose in world frame
         worldMobject_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
+
+        # Add a collision box on the object
+        self.planner.v.loadObstacleModel(rospkg.RosPack().get_path("prl_ur5_calibration") + "/files/models/marker.urdf", "marker_collision", guiOnly=False)
+        self.planner.v.moveObstacle("marker_collision/bounding_box_0", marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]), guiOnly=False)
+        self.planner.display(self.robot.get_meas_q())
 
         # Recover measure to not re-do it
         recover_cnt = 0
@@ -134,9 +144,8 @@ class Calibration:
 
             rospy.logwarn(F"Marker pose:\n{worldMobject}")
             if(trans_err > 0.05 or rot_err > 0.2):
-                rospy.logerr("Marker measured too far away from origin: point discarded"
-                            +F"\n(translation error {trans_err} (wrt 0.05), rotation error {rot_err} (wrt 0.2))")
-                continue
+                rospy.logerr(F"Marker measured far away from origin: point (n°{len(meas_log)-1}) kept anyway)\n"
+                            +F"(translation error {trans_err} (wrt 0.05), rotation error {rot_err} (wrt 0.2))")
 
             # Save values
             meas_log[-1] = (pose, optical_object, shoulder_effector)

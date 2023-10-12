@@ -8,6 +8,12 @@ def transform_to_se3(trans):
     return pin.XYZQUATToSE3([trans.translation.x, trans.translation.y, trans.translation.z,
                              trans.rotation.x, trans.rotation.y, trans.rotation.z, trans.rotation.w])
 
+def input_accept(prompt):
+    choice = input(prompt + " [y]/n: ")
+    if(choice == "" or choice.lower()[0] == 'y'):
+        return True
+    return False
+
 def compute_barycenter(pose_list, fp_iter=100, callback=None):
     """
     bi invariant barycenter
