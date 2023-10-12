@@ -32,7 +32,7 @@ class Calibration:
         self.planner.set_velocity_limit(0.25)
         self.planner.set_acceleration_limit(0.25)
         self.planner.set_planning_timeout(10.0)
-        self.commander_left_arm.start_trajecotry()
+        self.commander_left_arm.start_trajectory()
 
         # Calibration topics
         rospy.loginfo("Waiting for service compute_effector_camera_quick...")
