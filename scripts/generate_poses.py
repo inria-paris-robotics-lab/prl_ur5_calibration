@@ -118,7 +118,7 @@ class PoseGenerator():
         def is_pose_achievable(pose):
             ''' Test if a pose is achievable by the robot (path and final pose)'''
             try:
-                planner.make_gripper_approach(robot.left_gripper_name, pose, approach_distance = 0, do_not_plan = True)
+                planner.make_gripper_approach(robot.left_gripper_name, pose, approach_distance = 0, check_feasibility_only = True)
             except AssertionError as e:
                 # rospy.logwarn(e)
                 return False

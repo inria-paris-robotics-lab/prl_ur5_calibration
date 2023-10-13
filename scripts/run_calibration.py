@@ -31,7 +31,7 @@ class Calibration:
         self.planner.lock_right_arm()
         self.planner.set_velocity_limit(0.25)
         self.planner.set_acceleration_limit(0.25)
-        self.planner.set_planning_timeout(10.0)
+        self.planner.set_planning_timeout(45.0)
         self.commander_left_arm.start_trajectory()
 
         # Calibration topics
@@ -61,9 +61,10 @@ class Calibration:
                     break
                 print('Replanning...')
             except Exception as e:
-                rospy.logwarn("Failed to plan path")
+                # import traceback
+                # traceback.print_exc()
                 rospy.logwarn(e.args)
-                if(not input_accept(f"replan ?")):
+                if(not input_accept(f"Failed to find a path. Replan ?")):
                     return False
         self.commander_left_arm.execute_path(path)
         return True
