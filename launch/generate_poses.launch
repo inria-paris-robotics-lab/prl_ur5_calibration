@@ -12,6 +12,8 @@
     <arg name="plot_reachables" default="True" doc=""/>
     <arg name="plot_finals" default="True" doc=""/>
 
+    <include file="$(find prl_pinocchio)/launch/upload_ur5.launch"/>
+
     <!-- Run calibration node -->
     <node pkg="prl_ur5_calibration" type="generate_poses.py" name="generate_poses" output="screen">
         <param name="config_file"       value="$(arg config_file)"/>

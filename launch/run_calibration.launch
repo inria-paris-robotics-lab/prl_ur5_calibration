@@ -7,6 +7,10 @@
     <!-- Upload urdf/srdf for hpp -->
     <include file="$(find prl_pinocchio)/launch/upload_ur5.launch"/>
 
+    <!-- Publish 2 empty messages to avoid visp_hand2eye_calibration_calibrator to wait for topics -that are unused anyway- and spam warning messages -->
+    <node pkg="rostopic" type="rostopic" name="rostopic_pub_camera_object"  args="pub /camera_object  geometry_msgs/Transform '{translation: {x: 0,y: 0,z: 0}, rotation:{x: 0,y: 0,z: 0}}'"/>
+    <node pkg="rostopic" type="rostopic" name="rostopic_pub_world_effector" args="pub /world_effector geometry_msgs/Transform '{translation: {x: 0,y: 0,z: 0}, rotation:{x: 0,y: 0,z: 0}}'"/>
+
     <!-- hand2eye calibration service -->
     <node name="visp_hand2eye_calibration_calibrator" pkg="visp_hand2eye_calibration" type="visp_hand2eye_calibration_calibrator"/>
 
