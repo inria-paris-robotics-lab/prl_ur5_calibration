@@ -14,8 +14,10 @@ marker_pose: # Aruco calibration tag pose in world frame
   xyz: [-0.495, 0, 0.008] # position
   rpy: [0, 0, 0]          # orientation
 output_paths:
-  all: files/poses_calibration.p
-  reachable: files/poses_reachable.p
-  final: files/poses_sample.p
-  measures: files/measures.p
+  poses_all: files/experiment/pose_generation/poses_sample.pkl
+  poses_reachable: files/experiment/pose_generation/poses_reachable.pkl
+  poses_reachable_ordered: files/experiment/pose_generation/poses_reachable_ordered.pkl
+  poses_export: files/experiment/measures/
+  measures: files/experiment/measures/
+
 n_final_poses: 20 # Number of poses to keep for the final calibration

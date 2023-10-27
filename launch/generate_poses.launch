@@ -4,7 +4,8 @@
     <arg name="config_file" default="files/configuration.yaml" doc=""/>
     <arg name="generate_samples" default="True" doc="Generate or not the initial sampling of space."/>
     <arg name="filter_reachable" default="True" doc="Filter the initial sampling : test is each pose can be achieved by the robot"/>
-    <arg name="filter_decimate" default="True" doc="Filter the reachable poses : keep only the n poses that are the farther away from each other"/>
+    <arg name="order_reachable" default="True" doc="Order the reachable poses : order them so that the n first are as far a possible from each other"/>
+    <arg name="export_poses" default="True" doc="Export the n first reachable pose in separate files"/>
 
     <!-- Argument to enable plotting -->
     <arg name="plot" default="True" doc="Enable plotting the poses"/>
@@ -19,7 +20,8 @@
         <param name="config_file"       value="$(arg config_file)"/>
         <param name="generate_samples"  value="$(arg generate_samples)"/>
         <param name="filter_reachable"  value="$(arg filter_reachable)"/>
-        <param name="filter_decimate"   value="$(arg filter_decimate)"/>
+        <param name="order_reachable"   value="$(arg order_reachable)"/>
+        <param name="export_poses"      value="$(arg export_poses)"/>
         <param name="plot"              value="$(arg plot)"/>
         <param name="plot_samples"      value="$(arg plot_samples)"/>
         <param name="plot_reachables"   value="$(arg plot_reachables)"/>
