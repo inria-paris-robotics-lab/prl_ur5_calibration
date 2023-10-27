@@ -32,6 +32,7 @@ class Calibration:
         self.planner.set_velocity_limit(0.25)
         self.planner.set_acceleration_limit(0.25)
         self.planner.set_planning_timeout(45.0)
+        self.planner.set_collision_margin(0.03)
         self.commander_left_arm.start_trajectory()
 
         # Calibration topics
