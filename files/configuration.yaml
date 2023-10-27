@@ -17,7 +17,7 @@ output_paths:
   poses_all: files/experiment/pose_generation/poses_sample.pkl
   poses_reachable: files/experiment/pose_generation/poses_reachable.pkl
   poses_reachable_ordered: files/experiment/pose_generation/poses_reachable_ordered.pkl
-  poses_export: files/experiment/measures/
+  poses_export: files/experiment/pose_generation/exported_poses/
   measures: files/experiment/measures/
 
 n_final_poses: 20 # Number of poses to keep for the final calibration

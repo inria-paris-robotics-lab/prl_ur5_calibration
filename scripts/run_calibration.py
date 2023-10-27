@@ -3,6 +3,7 @@ from copy import deepcopy
 import rospy
 import pickle
 import rospkg
+import os
 
 from geometry_msgs.msg import Transform, Vector3, Quaternion, Quaternion
 from visp_hand2eye_calibration.srv import compute_effector_camera_quick
@@ -70,10 +71,8 @@ class Calibration:
         self.commander_left_arm.execute_path(path)
         return True
 
-    def get_measures(self, marker_pose, poses, logfile, recover=False):
+    def get_measures(self, marker_pose, pose_filelist, measure_dirpath, recover=False):
         # self.set_gripper("open")
-        meas_log = []
-        poses = deepcopy(poses)
 
         # Exact marker pose in world frame
         worldMobject_exact = pin.XYZQUATToSE3(marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]))
@@ -83,30 +82,22 @@ class Calibration:
         self.planner.v.moveObstacle("marker_collision/bounding_box_0", marker_pose["xyz"] + euler_to_quaternion(marker_pose["rpy"]), guiOnly=False)
         self.planner.display(self.robot.get_meas_q())
 
-        # Recover measure to not re-do it
-        recover_cnt = 0
-        if recover:
-            with open(logfile, "rb") as f:
-                recovered_data = pickle.load(f)
-
-            for meas in recovered_data:
-                for p in poses:
-                    if meas[0] == p: # The pose was in the recover file
-                        meas_log.append(meas)
-                        poses.remove(p)
-                        recover_cnt += 1
-                        break
-
-            rospy.logwarn(F"Recovered {recover_cnt} measures (over the {len(recovered_data)} previously saved). {len(poses)} measures left to do.")
-
         # Loop over the remaining poses
-        for pose in tqdm(poses):
-            # Save all the measures taken so far, in case of crash
-            with open(logfile, "wb") as f:
-                pickle.dump(meas_log, f)
+        for pose_filepath in tqdm(pose_filelist):
+            # Extract name of the pose
+            shortfile = pose_filepath.split('/')[-1]
+            assert shortfile.endswith(".pkl")
+            assert shortfile.startswith("pose_")
+            pose_name = shortfile[5:-4] # remove the '.pkl' and take what is after "pose_"
 
-            # Add a none element at the end of the log. Will be replaced by the real value (if success)
-            meas_log += [[pose, None, None]]
+            measure_filepath = measure_dirpath + "meas_" + pose_name + ".pkl"
+
+            # Skip if recover is one
+            if(recover and os.path.isfile(measure_filepath)):
+                rospy.logwarn(f"Pose {pose_name} recovered. Skipping this measurment.")
+
+            with open(pose_filepath, 'rb') as f:
+                pose = pickle.load(f)
 
             # Plan and go at pose
             success = self._go_at_pose(pose)
@@ -143,22 +134,24 @@ class Calibration:
 
             rospy.logwarn(F"Marker pose:\n{worldMobject}")
             if(trans_err > 0.05 or rot_err > 0.2):
-                rospy.logerr(F"Marker measured far away from expected pose: point (n°{len(meas_log)-1}) kept anyway)\n"
+                rospy.logerr(F"Marker measured far away from expected pose: point (n°{pose_name}) kept anyway)\n"
                             +F"(translation error {trans_err} (wrt 0.05), rotation error {rot_err} (wrt 0.2))")
 
-            # Save values
-            meas_log[-1] = (pose, optical_object, shoulder_effector)
+            # Save value
+            meas = (pose, optical_object, shoulder_effector)
+            with open(measure_filepath, 'wb') as f:
+                pickle.dump(meas, f)
 
-        # Save all the measures
-        with open(logfile, "wb") as f:
-            pickle.dump(meas_log, f)
-
-    def compute_calibration(self, marker_pose, logfile):
+    def compute_calibration(self, marker_pose, measure_filelist):
         optical_object_list = []
         shoulder_effector_list = []
 
-        log_data = pickle.load(open(logfile, "rb"))
-        for meas in log_data:
+        meas_data = []
+        for measure_filepath in measure_filelist:
+            with open(measure_filepath, 'rb') as f:
+                meas_data.append(pickle.load(f))
+
+        for meas in meas_data:
             if meas[1] is not None:
                 optical_object_list.append(meas[1])
                 shoulder_effector_list.append(meas[2])
@@ -219,27 +212,29 @@ if __name__ == "__main__":
 
     # Read configuration file
     config_filepath = abs_path + rospy.get_param("~config_file")
-    cfg_file = open(config_filepath, "r")
-    cfg = yaml.safe_load(cfg_file)
-    cfg_file.close()
+    with open(config_filepath, "r") as cfg_file:
+        cfg = yaml.safe_load(cfg_file)
 
     # Read calibration poses
-    poses_filepath = abs_path + cfg["output_paths"]["final"]
-    poses_file = open(poses_filepath, "rb")
-    poses = pickle.load(poses_file)
-    poses_file.close()
+    poses_dirpath = abs_path + cfg["output_paths"]["poses_export"]
+    poses_filelist = os.listdir(poses_dirpath)
+    poses_filelist = [poses_dirpath + pose_filepath for pose_filepath in poses_filelist]
 
     marker_pose = cfg["marker_pose"]
 
     # Prepare pickle log file for measures
-    measures_filepath = abs_path + cfg["output_paths"]["measures"]
+    measure_dirpath = abs_path + cfg["output_paths"]["measures"]
 
     # Parameters
     recover = rospy.get_param("~recover") # Recover measures from a previous run if possible
     compute_only = rospy.get_param("~compute_only", False) # Only read from the existing measure file and do the computation
 
-    # Run calibration
+    # Run data collection
     calibration = Calibration()
     if not compute_only:
-        calibration.get_measures(marker_pose, poses, measures_filepath, recover)
-    calibration.compute_calibration(marker_pose, measures_filepath)
+        calibration.get_measures(marker_pose, poses_filelist, measure_dirpath, recover)
+
+    # Run calibration
+    measure_filelist = os.listdir(measure_dirpath)
+    measure_filelist = [measure_dirpath + measure_filepath for measure_filepath in measure_filelist]
+    calibration.compute_calibration(marker_pose, measure_filelist)

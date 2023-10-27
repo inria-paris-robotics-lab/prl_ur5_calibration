@@ -111,6 +111,7 @@ class PoseGenerator():
         planner.lock_right_arm()
         planner.set_velocity_limit(0.25)
         planner.set_acceleration_limit(0.25)
+        planner.set_collision_margin(0.03)
 
         # Load the sampled poses
         with open(self.abs_path + self.cfg["output_paths"]["poses_all"], "rb") as f:
