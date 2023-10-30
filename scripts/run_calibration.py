@@ -95,6 +95,7 @@ class Calibration:
             # Skip if recover is one
             if(recover and os.path.isfile(measure_filepath)):
                 rospy.logwarn(f"Pose {pose_name} recovered. Skipping this measurment.")
+                continue
 
             with open(pose_filepath, 'rb') as f:
                 pose = pickle.load(f)
