@@ -13,11 +13,12 @@
 			<mu1>0.5</mu1>
 			<mu2>0.5</mu2>
 		</contrast>
+		<sample>
+			<step>4</step>
+			<nb_sample>250</nb_sample>
+		</sample>
 	</ecm>
-	<sample>
-		<step>4</step>
-		<nb_sample>250</nb_sample>
-	</sample>
+
 	<klt>
 		<threshold_outlier>0.7</threshold_outlier> 
   		<max_features>10000</max_features> 
@@ -29,9 +30,9 @@
   		<pyramid_lvl>3</pyramid_lvl> 
 		<mask_border>0</mask_border>
 	</klt>
+
 	<face>
   		<angle_appear>85</angle_appear> 
   		<angle_disappear>85</angle_disappear>
 	</face>
 </conf>
-
