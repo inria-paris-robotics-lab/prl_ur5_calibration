@@ -41,53 +41,6 @@ class CameraCalibrationNode(Node):
 
         self.main_timer = self.create_timer(1.0, self.calibration_step)
     
-    def get_marker(self):
-        success, pose, _ = visp_meas_filter(self, self.get_parameter("sample_nb").get_parameter_value().integer_value, self.get_parameter("tracker_node").get_parameter_value().string_value)
-        if success:
-            self.marker_pose = pose
-            self.timer_marker.cancel()
-        self.get_logger().warn("Tracking not stable enough, retrying...")
-
-    def run(self):
-        # Get marker transformation
-        pose = self.marker_pose
-        while pose is None:
-            rclpy.spin_once(self)
-            pose = self.marker_pose
-
-        # Inverse the transformation from camera-to-marker to marker-to-camera (a.k.a origin-to-camera)
-        quat = pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w
-        trans = pose.position.x, pose.position.y, pose.position.z
-
-        quat_mat = transformations.quaternion_matrix(quat)
-        trans_mat = transformations.translation_matrix(trans)
-
-        concat_mat = transformations.concatenate_matrices(trans_mat, quat_mat)
-
-        res_mat = transformations.inverse_matrix(concat_mat)
-        marker_T_camera = res_mat
-        marker_initial_pos = [-0.45, 0.0, 0.008]
-        marker_initial_quat = [0.0, 0.0, 0.0, 1.0]
-
-        init_quat_mat = transformations.quaternion_matrix(marker_initial_quat)
-        init_trans_mat = transformations.translation_matrix(marker_initial_pos)
-
-        world_T_marker = transformations.concatenate_matrices(init_trans_mat, init_quat_mat)
-
-        world_T_camera = np.matmul(world_T_marker, marker_T_camera)
-
-        res_trans = transformations.translation_from_matrix(world_T_camera)
-        res_quat = transformations.quaternion_from_matrix(world_T_camera)
-
-        # User-friendly print the result
-        camera_name = self.get_parameter("camera_name").get_parameter_value().string_value
-        sample_nb = self.get_parameter("sample_nb").get_parameter_value().integer_value
-        pretty_str = self.make_pretty_str(sample_nb, camera_name, res_trans, res_quat)
-        self.get_logger().info(pretty_str)
-        if not self.get_parameter("run_loop").get_parameter_value().bool_value:
-            self.get_logger().info(f"Done calibrating camera {camera_name}")
-            self.get_logger().info("Killing node...")
-            rclpy.shutdown()
     def calibration_step(self):
         """
         Cette fonction est maintenant la boucle principale.
@@ -119,7 +72,7 @@ class CameraCalibrationNode(Node):
             marker_T_camera = transformations.inverse_matrix(concat_mat)
             
             # Les transformations suivantes sont correctes
-            marker_initial_pos = [-0.45, 0.0, 0.008]
+            marker_initial_pos = [0.0, 0.0, 0.008]
             marker_initial_quat = [0.0, 0.0, 0.0, 1.0]
             init_quat_mat = transformations.quaternion_matrix(marker_initial_quat)
             init_trans_mat = transformations.translation_matrix(marker_initial_pos)
