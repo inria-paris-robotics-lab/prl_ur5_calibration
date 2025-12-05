@@ -28,7 +28,6 @@ def launch_setup(context, *args, **kwargs):
     model_name = 'april_pattern'
 
     camera_topic = camera_name_space + "/" + camera_name + camera_topic if camera_name_space != '' else camera_topic
-    camera_ref_frame = camera_name + "_color_optical_frame"
     print(f"Using camera topic: {camera_topic}")
     # Tracker node
     visp_auto_tracker_node = Node(
